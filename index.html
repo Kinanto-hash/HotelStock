@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HotelStock Pro V4.0 - Applicazione web per la gestione logistica e delle scorte per Hotel.">
+    <meta name="theme-color" content="#2563eb">
+    <!-- Favicon universale SVG (evita errori 404 su GitHub Pages) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏨</text></svg>">
+    
+    <title>HotelStock Pro V4.0 - Logistica Integrata</title>
+    
+    <script>
+        // Inizializza subito il tema per evitare "lampi" bianchi (FOUC)
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <script>
+        tailwind = {
+            config: {
+                darkMode: 'class',
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; }
+        .dark .tab-active { border-bottom: 2px solid #60a5fa; color: #60a5fa; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+        .version-badge { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        .truncate-cell { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-clickable:active { transform: scale(0.98); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+    <div id="app" class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex flex-wrap justify-between items-center shrink-0 gap-4 transition-colors duration-200">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-100 dark:shadow-none">
+                    <i data-lucide="hotel" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight leading-none text-slate-800 dark:text-white">HotelStock <span class="text-blue-600 dark:text-blue-400">Pro</span> <span class="align-middle text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full ml-1 font-extrabold uppercase tracking-widest border border-blue-200 dark:border-blue-700 shadow-sm">V4.0 Stabile</span></h1>
+                    <div id="active-season-indicator" class="flex items-center gap-1 mt-1 text-[10px] font-bold uppercase text-blue-500 dark:text-blue-400 tracking-tighter"></div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button onclick="toggleDarkMode()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all border border-transparent dark:border-slate-600" title="Cambia Tema">
+                    <i data-lucide="moon" id="dark-mode-icon" class="w-4 h-4"></i>
+                </button>
+
+                <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <i data-lucide="history" class="w-4 h-4 text-slate-400 dark:text-slate-500 ml-2"></i>
+                    <select id="version-selector" onchange="restoreVersion(this.value)" class="bg-transparent text-sm font-medium focus:outline-none pr-4 cursor-pointer text-slate-700 dark:text-slate-200">
+                        <option value="" class="dark:bg-slate-800">Cronologia Versioni...</option>
+                    </select>
+                    <button onclick="createManualVersion()" class="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm rounded-lg text-blue-600 dark:text-blue-400 transition-all" title="Crea punto di ripristino">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                
+                <div id="user-profile" class="hidden items-center gap-2 bg-blue-50 dark:bg-blue-900/30 p-1.5 px-3 rounded-xl border border-blue-100 dark:border-blue-800">
+                    <i data-lucide="user" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                    <span id="current-username" class="text-sm font-bold text-blue-800 dark:text-blue-200"></span>
+                    <button onclick="logout()" class="ml-2 p-1 hover:bg-white dark:hover:bg-blue-800 rounded-lg text-blue-600 dark:text-blue-400 transition-all" title="Esci">
+                        <i data-lucide="log-out" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-1" id="main-nav">
+                <button onclick="switchTab('dashboard')" class="nav-btn px-4 py-2 text-sm font-semibold transition-all rounded-lg dark:text-slate-300 dark:hover:text-blue-400" data-tab="dashboard">Dashboard</button>
+                <button onclick="switchTab('movements')" class="nav-btn px-4 py-2 text-sm font-semibold transition-all rounded-lg dark:text-slate-300 dark:hover:text-blue-400" data-tab="movements">Movimenti</button>
+                <button onclick="switchTab('stock')" class="nav-btn px-4 py-2 text-sm font-semibold transition-all rounded-lg dark:text-slate-300 dark:hover:text-blue-400" data-tab="stock">Giacenze</button>
+                <button onclick="switchTab('documents')" class="nav-btn px-4 py-2 text-sm font-semibold transition-all rounded-lg dark:text-slate-300 dark:hover:text-blue-400" data-tab="documents">Documenti</button>
+                <button onclick="switchTab('registry')" class="nav-btn px-4 py-2 text-sm font-semibold transition-all rounded-lg dark:text-slate-300 dark:hover:text-blue-400" data-tab="registry">Anagrafiche</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-hidden p-4 md:p-6">
+            <div id="content-area" class="h-full overflow-y-auto custom-scrollbar"></div>
+        </main>
+
+        <!-- Notification -->
+        <div id="notification" class="fixed bottom-6 right-6 transform translate-y-20 transition-transform duration-300 bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">
+            <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+            <span id="notification-text">Messaggio</span>
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-40 backdrop-blur-sm p-4 transition-opacity" onclick="handleOverlayClick(event)">
+        <div id="modal-content" class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl p-6 overflow-hidden border border-white/20 dark:border-slate-600 transition-colors" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[60] p-4 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-transparent dark:border-slate-700 transition-colors">
+            <div class="bg-blue-600 w-16 h-16 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="lock" class="text-white w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-2">Accesso Riservato</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-8">Seleziona il tuo profilo e inserisci la password</p>
+            
+            <form id="login-form" class="space-y-4 text-left" onsubmit="handleLogin(event)">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Utente</label>
+                    <select id="login-user-select" class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white transition-colors">
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password</label>
+                    <input type="password" id="login-pin" required class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-center tracking-[0.5em] text-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white transition-colors" placeholder="••••">
+                </div>
+                <p id="login-error" class="text-red-500 text-xs font-bold hidden text-center mt-2">Credenziali Errate. Riprova.</p>
+                <button type="submit" class="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all mt-4">Accedi</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[70] text-white flex-col gap-4 transition-opacity duration-300">
+        <i data-lucide="cloud-sync" class="w-12 h-12 animate-pulse text-blue-500"></i>
+        <p class="font-bold tracking-widest text-sm text-slate-300 uppercase">Sincronizzazione Cloud...</p>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES & UTILS ---
+        var state = {
+            items: [], categories: [], uoms: [], suppliers: [], seasons: [], outlets: [], documentTypes: [], users: [],
+            currentSeasonId: null, movements: [], bolle: [], versionHistory: [],
+            activeTab: 'dashboard', dashboardFilter: 'current', registrySeasonFilter: 'current'
+        };
+
+        const STORAGE_KEY = 'hotel_stock_v4';
+        const MAX_HISTORY = 10; 
+        let myCharts = {};
+        let currentUser = null;
+
+        let pendingBollaItems = [];
+        let currentBollaSupplierId = "";
+        let currentBollaDocTypeId = "";
+        let currentBollaDocRef = "";
+        let editingBollaId = null;
+
+        let pendingDischargeItems = [];
+        let currentDischargeOutletId = "";
+        let pendingInventoryItems = [];
+        let pendingNewItems = [];
+        
+        let stockSortCol = 'name';
+        let stockSortAsc = true;
+        let stockFilterSupplier = '';
+        let expandedDocumentId = null;
+        let docFilterSearch = '';
+        let docFilterDate = '';
+        let docFilterSupplier = '';
+
+        window.showNotification = function(text) {
+            const t = document.getElementById('notification');
+            const textEl = document.getElementById('notification-text');
+            if(t && textEl) {
+                textEl.innerText = text;
+                t.style.transform = 'translateY(0)';
+                setTimeout(() => t.style.transform = 'translateY(5rem)', 3000);
+            }
+        };
+
+        window.toggleDarkMode = () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            updateDarkModeIcon();
+            if(state.activeTab === 'dashboard') renderCharts(); 
+        };
+
+        function updateDarkModeIcon() {
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) {
+                icon.setAttribute('data-lucide', document.documentElement.classList.contains('dark') ? 'sun' : 'moon');
+                lucide.createIcons();
+            }
+        }
+
+        function getCategoryName(id) { return state.categories.find(c => c.id === id)?.name || '-'; }
+        function getSeasonName(id) { return state.seasons.find(s => s.id === id)?.name || 'N.D.'; }
+        function getUomName(id) { const u = state.uoms.find(u => u.id === id); return u ? u.name.split('(')[1]?.replace(')','') || u.name : 'PZ'; }
+        function getDocTypeName(id) { return state.documentTypes.find(dt => dt.id === id)?.name || "Bolla"; }
+
+        function openModal(html) { 
+            const c = document.getElementById('modal-content'); 
+            if (html !== '') c.innerHTML = html; 
+            document.getElementById('modal-overlay').classList.replace('hidden', 'flex'); 
+            lucide.createIcons(); 
+        }
+        
+        function closeModal() { 
+            document.getElementById('modal-overlay').classList.replace('flex', 'hidden'); 
+            editingBollaId = null; pendingBollaItems = []; pendingDischargeItems = []; pendingInventoryItems = []; pendingNewItems = [];
+        }
+
+        function handleOverlayClick(e) { if (e.target.id === 'modal-overlay') closeModal(); }
+
+        // --- INIT & PERSISTENCE ---
+        window.initCloudData = function(cloudState) {
+            if (cloudState) {
+                state = cloudState;
+                if (!state.documentTypes || state.documentTypes.length === 0) {
+                    state.documentTypes = [{id: 'dt1', name: 'Bolla'}, {id: 'dt2', name: 'DDT'}, {id: 'dt3', name: 'Scontrino'}, {id: 'dt4', name: 'Fattura Acc.'}];
+                }
+                if (!state.users || state.users.length === 0) {
+                    state.users = [{id: 'u-admin', username: 'admin', password: 'admin', role: 'Amministratore'}];
+                }
+            } else {
+                const savedState = localStorage.getItem(STORAGE_KEY);
+                if (savedState) {
+                    try {
+                        state = JSON.parse(savedState);
+                        if (!state.documentTypes || state.documentTypes.length === 0) {
+                            state.documentTypes = [{id: 'dt1', name: 'Bolla'}, {id: 'dt2', name: 'DDT'}, {id: 'dt3', name: 'Scontrino'}, {id: 'dt4', name: 'Fattura Acc.'}];
+                        }
+                        if (!state.users || state.users.length === 0) {
+                            state.users = [{id: 'u-admin', username: 'admin', password: 'admin', role: 'Amministratore'}];
+                        }
+                    } catch (e) { console.error("Errore parsing dati", e); }
+                } else {
+                    state.categories = [{id: 'c1', name: 'Alimentari'}, {id: 'c2', name: 'Pulizia'}, {id: 'c3', name: 'Beverage'}];
+                    state.uoms = [{id: 'u1', name: 'Pezzi (PZ)'}, {id: 'u2', name: 'Kg'}, {id: 'u3', name: 'Litri (L)'}];
+                    state.seasons = [{id: 's1', name: 'Inverno 2024/25'}, {id: 's2', name: 'Estate 2025'}];
+                    state.outlets = [{id: 'o1', name: 'Bar Centrale', budget: 1000}, {id: 'o2', name: 'Ristorante', budget: 500}];
+                    state.documentTypes = [{id: 'dt1', name: 'Bolla'}, {id: 'dt2', name: 'DDT'}, {id: 'dt3', name: 'Scontrino'}, {id: 'dt4', name: 'Fattura Acc.'}];
+                    state.suppliers = [{id: 'f1', name: 'Fornitore Test SRL', contactPerson: 'Mario', phone: '02-123456', email: 'test@email.it'}];
+                    state.users = [{id: 'u-admin', username: 'admin', password: 'admin', role: 'Amministratore'}];
+                    state.currentSeasonId = 's1';
+                    saveData(false, "Inizializzazione");
+                }
+            }
+
+            window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+            updateVersionSelector();
+            updateSeasonIndicator();
+            updateDarkModeIcon();
+            render();
+            if (!currentUser) renderLogin();
+            lucide.createIcons();
+
+            const loader = document.getElementById('loading-overlay');
+            if(loader) {
+                loader.classList.add('opacity-0');
+                setTimeout(() => loader.classList.add('hidden'), 300);
+            }
+        }
+
+        function renderLogin() {
+            const select = document.getElementById('login-user-select');
+            if(select) {
+                select.innerHTML = state.users.map(u => `<option value="${u.id}" class="dark:bg-slate-800">${u.username}</option>`).join('');
+            }
+            document.getElementById('login-pin').value = '';
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('user-profile').classList.add('hidden');
+            document.getElementById('user-profile').classList.remove('flex');
+            document.getElementById('app').classList.add('blur-sm', 'pointer-events-none');
+        }
+
+        window.handleLogin = function(e) {
+            if(e) e.preventDefault();
+            const userId = document.getElementById('login-user-select').value;
+            const pinInput = document.getElementById('login-pin');
+            const pin = pinInput.value;
+            const user = state.users.find(u => u.id === userId);
+            
+            if (user && user.password === pin) {
+                currentUser = user;
+                document.getElementById('login-overlay').classList.add('hidden');
+                document.getElementById('app').classList.remove('blur-sm', 'pointer-events-none');
+                document.getElementById('user-profile').classList.remove('hidden');
+                document.getElementById('user-profile').classList.add('flex');
+                document.getElementById('current-username').innerText = user.username;
+                showNotification(`Accesso effettuato come ${user.username}`);
+                pinInput.value = ''; 
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+                pinInput.value = ''; 
+                pinInput.focus();
+            }
+        };
+
+        window.logout = function() {
+            currentUser = null;
+            state.activeTab = 'dashboard'; 
+            closeModal(); 
+            render();
+            renderLogin();
+            showNotification("Disconnesso con successo");
+        };
+
+        function saveData(createSnapshot = true, label = "Aggiornamento dati") {
+            if (createSnapshot) {
+                const snapshot = {
+                    id: Date.now(),
+                    timestamp: new Date().toLocaleString('it-IT'),
+                    label: label,
+                    data: JSON.parse(JSON.stringify({
+                        items: state.items, categories: state.categories, uoms: state.uoms,
+                        suppliers: state.suppliers, seasons: state.seasons, outlets: state.outlets,
+                        documentTypes: state.documentTypes, users: state.users, currentSeasonId: state.currentSeasonId,
+                        movements: state.movements, bolle: state.bolle
+                    }))
+                };
+                state.versionHistory.unshift(snapshot);
+                if (state.versionHistory.length > MAX_HISTORY) state.versionHistory.pop(); 
+            }
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError') {
+                    state.versionHistory = state.versionHistory.slice(0, 3);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                }
+            }
+            updateVersionSelector();
+            updateSeasonIndicator();
+
+            if (typeof window.onSaveToCloud === 'function') {
+                window.onSaveToCloud(state);
+            }
+        }
+
+        function updateVersionSelector() {
+            const selector = document.getElementById('version-selector');
+            if (!selector) return;
+            selector.innerHTML = '<option value="" class="dark:bg-slate-800">Cronologia Versioni...</option>';
+            state.versionHistory.forEach((v, index) => {
+                const option = document.createElement('option');
+                option.value = index; option.className = "dark:bg-slate-800"; option.textContent = `${v.timestamp} - ${v.label}`;
+                selector.appendChild(option);
+            });
+        }
+
+        function updateSeasonIndicator() {
+            const indicator = document.getElementById('active-season-indicator');
+            if (!indicator) return;
+            const season = state.seasons.find(s => s.id === state.currentSeasonId);
+            indicator.innerHTML = season 
+                ? `<i data-lucide="sun" class="w-3 h-3 text-orange-400"></i> Stagione: ${season.name}`
+                : `<i data-lucide="alert-circle" class="w-3 h-3 text-red-400"></i> No Stagione`;
+            lucide.createIcons();
+        }
+        
+        window.setCurrentSeason = function(id) {
+            state.currentSeasonId = id;
+            saveData(true, "Cambio stagione attiva");
+            render();
+            showNotification("Stagione impostata come attiva");
+        };
+
+        window.restoreVersion = function(index) {
+            if (index === "") return;
+            const version = state.versionHistory[index];
+            openModal(`
+                <div class="text-center p-4">
+                    <h3 class="text-xl font-bold mb-2 text-slate-800 dark:text-white">Ripristina Backup</h3>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm italic">Ripristinare lo stato del ${version.timestamp}?</p>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="confirmRestore(${index})" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg">Ripristina</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        window.confirmRestore = function(index) {
+            const versionData = state.versionHistory[index].data;
+            const history = state.versionHistory; 
+            state = { ...versionData, versionHistory: history, activeTab: state.activeTab };
+            saveData(false); closeModal(); render(); showNotification("Backup ripristinato");
+            document.getElementById('version-selector').value = "";
+        }
+
+        window.createManualVersion = function() { saveData(true, "Manuale"); showNotification("Versione salvata"); }
+        window.switchTab = function(tab) { state.activeTab = tab; render(); }
+
+        function updateNavStyles() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+                if (btn.dataset.tab === state.activeTab) btn.classList.add('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+            });
+        }
+
+        function render() {
+            const container = document.getElementById('content-area');
+            updateNavStyles();
+            switch(state.activeTab) {
+                case 'dashboard': renderDashboard(container); break;
+                case 'movements': renderMovements(container); break;
+                case 'stock': renderStock(container); break;
+                case 'documents': renderDocuments(container); break;
+                case 'registry': renderRegistry(container); break;
+            }
+            lucide.createIcons();
+        }
+
+        // --- DASHBOARD ---
+        function renderDashboard(container) {
+            const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
+            const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
+            const totalCostValue = filteredItems.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
+            
+            const totalSaleValue = state.movements.filter(mv => {
+                if (mv.type !== 'OUT') return false;
+                const item = state.items.find(i => i.id === mv.itemId);
+                return state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId);
+            }).reduce((acc, mv) => acc + (mv.quantity * mv.price), 0);
+
+            const topByValue = [...filteredItems].sort((a, b) => (b.currentStock * b.lastPrice) - (a.currentStock * a.lastPrice)).slice(0, 5);
+            const topByQty = [...filteredItems].sort((a, b) => b.currentStock - a.currentStock).slice(0, 5);
+            
+            const catSummary = {};
+            filteredItems.forEach(item => {
+                const catName = getCategoryName(item.categoryId);
+                if(!catSummary[catName]) catSummary[catName] = { value: 0, qty: 0 };
+                catSummary[catName].value += (item.currentStock * item.lastPrice);
+                catSummary[catName].qty += item.currentStock;
+            });
+            
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const outletSpending = {};
+            state.outlets.forEach(o => { outletSpending[o.id] = { name: o.name, budget: o.budget || 0, spent: 0 }; });
+            state.movements.forEach(mv => {
+                if (mv.type === 'OUT' && mv.outletId) {
+                    const parts = mv.date.split('/'); 
+                    if (parts.length === 3) {
+                        const mvMonth = parseInt(parts[1]) - 1; const mvYear = parseInt(parts[2]);
+                        if (mvMonth === currentMonth && mvYear === currentYear && outletSpending[mv.outletId]) {
+                            outletSpending[mv.outletId].spent += (mv.quantity * mv.price);
+                        }
+                    }
+                }
+            });
+
+            const budgetHTML = Object.values(outletSpending).filter(o => o.budget > 0).map(out => {
+                const pct = Math.min((out.spent / out.budget) * 100, 100);
+                const isOver = out.spent > out.budget;
+                const color = isOver ? 'bg-red-500' : (pct > 80 ? 'bg-amber-500' : 'bg-emerald-500');
+                return `
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="font-bold text-xs text-slate-700 dark:text-slate-200 truncate mr-2">${out.name}</span>
+                            <span class="text-[10px] font-bold ${isOver ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'} whitespace-nowrap">€ ${out.spent.toFixed(2)} / ${out.budget.toFixed(0)}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mb-1.5 overflow-hidden">
+                            <div class="${color} h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div>
+                        </div>
+                        <div class="text-right text-[9px] font-extrabold uppercase ${isOver ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}">${((out.spent/out.budget)*100).toFixed(1)}% Utilizzato</div>
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Dashboard Strategica</h2>
+                        <p class="text-sm text-slate-400 italic">Analisi giacenze e vendite</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex bg-slate-200/50 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <button onclick="state.dashboardFilter='current'; render()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'current' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Stagione Attiva</button>
+                            <button onclick="state.dashboardFilter='all'; render()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Globale</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-center md:text-left">
+                    <div onclick="switchTab('stock')" class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95 group">
+                        <div class="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase mb-1 flex items-center gap-1 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors"><i data-lucide="archive" class="w-3 h-3"></i> Stock a Costo</div>
+                        <div class="text-2xl font-bold text-slate-800 dark:text-white">€ ${totalCostValue.toFixed(2)}</div>
+                    </div>
+                    <div onclick="showTotalSalesDetailsModal()" class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 ring-2 ring-green-100 dark:ring-green-900/50 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95 group">
+                        <div class="text-green-600 dark:text-green-500 text-[10px] font-bold uppercase mb-1 flex items-center gap-1 group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors"><i data-lucide="trending-up" class="w-3 h-3"></i> Totale Venduto</div>
+                        <div class="text-2xl font-bold text-green-700 dark:text-green-400">€ ${totalSaleValue.toFixed(2)}</div>
+                    </div>
+                    <div onclick="switchTab('registry')" class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95 group">
+                        <div class="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase mb-1 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">Referenze</div>
+                        <div class="text-2xl font-bold text-slate-800 dark:text-white">${filteredItems.length}</div>
+                    </div>
+                    <div onclick="document.getElementById('alert-sottoscorta').scrollIntoView({behavior: 'smooth'})" class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95 group">
+                        <div class="text-red-600 dark:text-red-500 text-[10px] font-bold uppercase mb-1 font-extrabold flex items-center gap-1 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors"><i data-lucide="alert-circle" class="w-3 h-3"></i> Sottoscorta</div>
+                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">${lowStockItems.length}</div>
+                    </div>
+                </div>
+
+                <div id="alert-sottoscorta" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden text-sm mb-8">
+                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/50 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <h2 class="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Articoli Sotto Scorta</h2>
+                            <span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[9px] font-extrabold rounded-lg">${lowStockItems.length} ALERT</span>
+                        </div>
+                        ${lowStockItems.length > 0 ? `<button onclick="openOrderGenerationModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm flex items-center gap-1"><i data-lucide="shopping-cart" class="w-3 h-3"></i> Genera Ordini</button>` : ''}
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                                <tr><th class="px-6 py-3 border-b dark:border-slate-700">Prodotto</th><th class="px-6 py-3 text-center border-b dark:border-slate-700">Giacenza</th><th class="px-6 py-3 text-center border-b dark:border-slate-700">Soglia</th><th class="px-6 py-3 text-right border-b dark:border-slate-700">Stato</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                ${lowStockItems.length === 0 ? `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400 dark:text-slate-500 italic">Nessun articolo sottoscorta.</td></tr>` : 
+                                lowStockItems.map(item => `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                        <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">${item.name}<div class="text-[9px] uppercase text-slate-400 dark:text-slate-500 font-bold">${getSeasonName(item.seasonId)}</div></td>
+                                        <td class="px-6 py-4 text-center font-bold text-red-600 dark:text-red-400">${item.currentStock}</td>
+                                        <td class="px-6 py-4 text-center text-slate-400 dark:text-slate-500 font-medium">${item.reorderLevel}</td>
+                                        <td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-red-600 text-white text-[9px] font-extrabold rounded uppercase version-badge tracking-tighter">Riordinare</span></td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden text-sm mb-8">
+                    <div class="px-6 py-4 border-b border-indigo-100 dark:border-indigo-900/30 bg-indigo-50/10 dark:bg-indigo-900/10 flex justify-between items-center">
+                        <h2 class="font-bold text-xs uppercase tracking-widest text-indigo-700 dark:text-indigo-400 flex items-center gap-2"><i data-lucide="pie-chart" class="w-4 h-4"></i> Report Analitico</h2>
+                    </div>
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col">
+                            <h3 class="text-[10px] font-bold text-center mb-2 text-slate-500 dark:text-slate-400 uppercase tracking-wider">Valore Stock per Categoria</h3>
+                            <div class="relative flex-1 min-h-[160px] w-full"><canvas id="chartCategoryValue"></canvas></div>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col">
+                            <h3 class="text-[10px] font-bold text-center mb-2 text-slate-500 dark:text-slate-400 uppercase tracking-wider">Q.tà Articoli per Categoria</h3>
+                            <div class="relative flex-1 min-h-[160px] w-full"><canvas id="chartCategoryQty"></canvas></div>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col">
+                            <h3 class="text-[10px] font-bold text-center mb-2 text-slate-500 dark:text-slate-400 uppercase tracking-wider">Spesa per Fornitore</h3>
+                            <div class="relative flex-1 min-h-[160px] w-full"><canvas id="chartSupplierSpend"></canvas></div>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col">
+                            <h3 class="text-[10px] font-bold text-center mb-2 text-slate-500 dark:text-slate-400 uppercase tracking-wider">Incasso Vendite per Categoria</h3>
+                            <div class="relative flex-1 min-h-[160px] w-full"><canvas id="chartSalesCategory"></canvas></div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <h3 class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3 text-green-500"></i> Top 5 Prodotti (Valore)</h3>
+                            <ul class="space-y-2">
+                                ${topByValue.length === 0 || totalCostValue === 0 ? '<li class="text-xs text-slate-400 italic">Nessun dato</li>' : topByValue.filter(i => i.currentStock > 0).map(i => `
+                                    <li class="flex justify-between items-center text-xs p-2 bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-lg shadow-sm">
+                                        <span class="font-bold text-slate-700 dark:text-slate-200 truncate mr-2">${i.name}</span>
+                                        <span class="text-green-600 dark:text-green-400 font-bold whitespace-nowrap">€ ${(i.currentStock * i.lastPrice).toFixed(2)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1"><i data-lucide="layers" class="w-3 h-3 text-blue-500"></i> Top 5 Prodotti (Quantità)</h3>
+                            <ul class="space-y-2">
+                                ${topByQty.length === 0 || topByQty[0].currentStock === 0 ? '<li class="text-xs text-slate-400 italic">Nessun dato</li>' : topByQty.filter(i => i.currentStock > 0).map(i => `
+                                    <li class="flex justify-between items-center text-xs p-2 bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-lg shadow-sm">
+                                        <span class="font-bold text-slate-700 dark:text-slate-200 truncate mr-2">${i.name}</span>
+                                        <span class="text-blue-600 dark:text-blue-400 font-bold whitespace-nowrap">${i.currentStock} pz</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1"><i data-lucide="pie-chart" class="w-3 h-3 text-indigo-500"></i> Dettaglio Categorie</h3>
+                            <div class="overflow-x-auto bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-lg shadow-sm p-2">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="text-[9px] uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-600">
+                                        <tr><th class="pb-2 font-bold">Categoria</th><th class="pb-2 text-right font-bold">Q.tà</th><th class="pb-2 text-right font-bold">Valore</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-50 dark:divide-slate-600/50">
+                                        ${Object.keys(catSummary).length === 0 ? '<tr><td colspan="3" class="py-3 text-center text-slate-400 italic">Nessun dato</td></tr>' : Object.entries(catSummary).map(([cat, data]) => `
+                                            <tr>
+                                                <td class="py-2 font-bold text-slate-700 dark:text-slate-200">${cat}</td>
+                                                <td class="py-2 text-right font-medium text-slate-600 dark:text-slate-300">${data.qty}</td>
+                                                <td class="py-2 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${data.value.toFixed(2)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(renderCharts, 0);
+        }
+
+        function renderCharts() {
+            if(Object.keys(myCharts).length > 0) { Object.values(myCharts).forEach(c => c.destroy()); myCharts = {}; }
+            const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
+
+            const catValueData = {}, catQtyData = {}, supplierSpend = {}, salesByCategoryData = {};
+            filteredItems.forEach(item => {
+                const catName = getCategoryName(item.categoryId);
+                catValueData[catName] = (catValueData[catName] || 0) + (item.currentStock * item.lastPrice);
+                catQtyData[catName] = (catQtyData[catName] || 0) + item.currentStock;
+            });
+            state.bolle.forEach(b => {
+                const supName = state.suppliers.find(s => s.id === b.supplierId)?.name || 'N.D.';
+                const bollaVal = b.movementsIds.reduce((acc, mid) => {
+                    const mv = state.movements.find(m => m.id === mid);
+                    return acc + (mv ? mv.quantity * mv.price : 0);
+                }, 0);
+                if(bollaVal > 0) supplierSpend[supName] = (supplierSpend[supName] || 0) + bollaVal;
+            });
+            state.movements.forEach(mv => {
+                if (mv.type === 'OUT') {
+                    const item = state.items.find(i => i.id === mv.itemId);
+                    if (state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId)) {
+                        const catName = item ? getCategoryName(item.categoryId) : 'Eliminati/Sconosciuti';
+                        salesByCategoryData[catName] = (salesByCategoryData[catName] || 0) + (mv.quantity * mv.price);
+                    }
+                }
+            });
+
+            const isDark = document.documentElement.classList.contains('dark');
+            Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+            Chart.defaults.borderColor = isDark ? '#334155' : '#e2e8f0';
+
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b', '#14b8a6', '#f43f5e', '#84cc16'];
+            const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 10} } } } };
+
+            function createChartConfig(dataObj, type, onClickCallback, isCurrency = true) {
+                const hasData = Object.keys(dataObj).length > 0;
+                return {
+                    type: type,
+                    data: {
+                        labels: hasData ? Object.keys(dataObj) : ['Nessun Dato'],
+                        datasets: [{ data: hasData ? Object.values(dataObj) : [1], backgroundColor: hasData ? colors : (isDark ? ['#334155'] : ['#e2e8f0']), borderWidth: isDark ? 2 : 0, borderColor: isDark ? '#1e293b' : '#ffffff', hoverOffset: hasData ? 5 : 0 }]
+                    },
+                    options: {
+                        ...commonOptions,
+                        plugins: {
+                            ...commonOptions.plugins,
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        if (!hasData) return 'Nessun Dato';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                        return isCurrency ? `${context.label}: € ${value.toFixed(2)} (${pct})` : `${context.label}: ${value} pz (${pct})`;
+                                    }
+                                }
+                            }
+                        },
+                        onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] && hasData ? 'pointer' : 'default'; },
+                        onClick: (event, elements, chart) => {
+                            if (!hasData || elements.length === 0) return;
+                            const index = elements[0].index;
+                            const label = chart.data.labels[index];
+                            if (onClickCallback) onClickCallback(label);
+                        }
+                    }
+                };
+            }
+
+            const ctx1 = document.getElementById('chartCategoryValue');
+            if(ctx1) myCharts.c1 = new Chart(ctx1, createChartConfig(catValueData, 'doughnut', window.showCategoryDetailsModal, true));
+            const ctx2 = document.getElementById('chartCategoryQty');
+            if(ctx2) myCharts.c2 = new Chart(ctx2, createChartConfig(catQtyData, 'pie', window.showCategoryDetailsModal, false));
+            const ctx3 = document.getElementById('chartSupplierSpend');
+            if(ctx3) myCharts.c3 = new Chart(ctx3, createChartConfig(supplierSpend, 'doughnut', window.showSupplierDetailsModal, true));
+            const ctx4 = document.getElementById('chartSalesCategory');
+            if(ctx4) myCharts.c4 = new Chart(ctx4, createChartConfig(salesByCategoryData, 'pie', window.showSalesDetailsModal, true));
+        }
+
+        window.showCategoryDetailsModal = (categoryName) => {
+            const category = state.categories.find(c => c.name === categoryName);
+            if (!category) return;
+            const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
+            const itemsInCat = filteredItems.filter(i => i.categoryId === category.id && i.currentStock > 0);
+            const totalVal = itemsInCat.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
+            const totalQty = itemsInCat.reduce((acc, i) => acc + i.currentStock, 0);
+
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Categoria: ${categoryName}</h3>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Totale: ${totalQty} pz | Valore: € ${totalVal.toFixed(2)}</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Prezzo Unit.</th><th class="px-4 py-2 text-right">Valore Tot.</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                            ${itemsInCat.length === 0 ? '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">Nessun articolo in giacenza in questa categoria.</td></tr>' : itemsInCat.map(i => `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${i.name}</td>
+                                    <td class="px-4 py-3 text-center font-medium dark:text-slate-300">${i.currentStock}</td>
+                                    <td class="px-4 py-3 text-right text-slate-500 dark:text-slate-400">€ ${i.lastPrice.toFixed(2)}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${(i.currentStock * i.lastPrice).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
+            `);
+        };
+
+        window.showSupplierDetailsModal = (supplierName) => {
+            const supplier = state.suppliers.find(s => s.name === supplierName);
+            if (!supplier) return;
+
+            const bolleDelFornitore = state.bolle.filter(b => b.supplierId === supplier.id);
+            const totalSpend = bolleDelFornitore.reduce((totalAcc, bolla) => {
+                const bollaVal = bolla.movementsIds.reduce((acc, mid) => {
+                    const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
+                }, 0);
+                return totalAcc + bollaVal;
+            }, 0);
+            
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Fornitore: ${supplierName}</h3>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Totale Documenti: ${bolleDelFornitore.length} | Spesa Totale: € ${totalSpend.toFixed(2)}</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            <tr><th class="px-4 py-2">Data</th><th class="px-4 py-2">Documento</th><th class="px-4 py-2 text-right">Valore</th><th class="px-4 py-2 text-right">Azioni</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                            ${bolleDelFornitore.length === 0 ? '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">Nessun documento trovato.</td></tr>' : bolleDelFornitore.slice().reverse().map(bolla => {
+                                const val = bolla.movementsIds.reduce((acc, mid) => {
+                                    const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
+                                }, 0);
+                                return `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${bolla.date}</td>
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${getDocTypeName(bolla.docTypeId)} ${bolla.docRef}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${val.toFixed(2)}</td>
+                                    <td class="px-4 py-3 text-right"><button onclick="viewBollaDetail('${bolla.id}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors border border-transparent dark:border-blue-700">Vedi</button></td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
+            `);
+        };
+
+        window.showTotalSalesDetailsModal = () => {
+            const allSales = {};
+            let totalVal = 0, totalQty = 0;
+            state.movements.forEach(mv => {
+                if (mv.type === 'OUT') {
+                    const item = state.items.find(i => i.id === mv.itemId);
+                    if (state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId)) {
+                        const itemName = item ? item.name : 'Articolo Eliminato';
+                        const itemId = item ? item.id : 'deleted';
+                        if (!allSales[itemId]) allSales[itemId] = { name: itemName, qty: 0, val: 0 };
+                        allSales[itemId].qty += mv.quantity;
+                        allSales[itemId].val += (mv.quantity * mv.price);
+                        totalQty += mv.quantity; totalVal += (mv.quantity * mv.price);
+                    }
+                }
+            });
+            const sortedSales = Object.values(allSales).sort((a, b) => b.val - a.val);
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Totale Venduto</h3>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Volume Complessivo: ${totalQty} pz | Incasso Globale: € ${totalVal.toFixed(2)}</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner custom-scrollbar">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà Venduta</th><th class="px-4 py-2 text-right">Incasso Tot.</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                            ${sortedSales.length === 0 ? '<tr><td colspan="3" class="px-4 py-6 text-center text-slate-400 italic">Nessuna vendita registrata.</td></tr>' : sortedSales.map(i => `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${i.name}</td>
+                                    <td class="px-4 py-3 text-center font-medium dark:text-slate-300">${i.qty}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-green-600 dark:text-green-400">€ ${i.val.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
+            `);
+            lucide.createIcons();
+        };
+
+        // --- STOCK VIEW ---
+        function renderStock(container) {
+            let filteredItems = state.items;
+
+            if (stockFilterSupplier !== '') {
+                filteredItems = filteredItems.filter(item => {
+                    return state.movements.some(m => m.itemId === item.id && m.type === 'IN' && m.supplierId === stockFilterSupplier);
+                });
+            }
+
+            let sortedItems = [...filteredItems].sort((a, b) => {
+                let valA = stockSortCol === 'name' ? a.name.toLowerCase() : (stockSortCol === 'stock' ? a.currentStock : a.lastPrice);
+                let valB = stockSortCol === 'name' ? b.name.toLowerCase() : (stockSortCol === 'stock' ? b.currentStock : b.lastPrice);
+                if (valA < valB) return stockSortAsc ? -1 : 1;
+                if (valA > valB) return stockSortAsc ? 1 : -1;
+                return 0;
+            });
+            container.innerHTML = `
+                <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                    <div><h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Giacenze Attuali</h2><p class="text-sm text-slate-400 italic">Situazione in tempo reale del magazzino</p></div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 shadow-sm">
+                            <i data-lucide="truck" class="w-4 h-4 text-slate-400"></i>
+                            <select id="filter-stock-supplier" onchange="updateStockFilter()" class="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
+                                <option value="" class="dark:bg-slate-800">Tutti i fornitori</option>
+                                ${state.suppliers.map(s => `<option value="${s.id}" class="dark:bg-slate-800" ${stockFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <button onclick="exportDataToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg active:scale-95 text-xs md:text-sm"><i data-lucide="download" class="w-4 h-4"></i> Esporta CSV</button>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden text-sm mb-8 text-xs text-left">
+                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-blue-50/10 dark:bg-blue-900/10 flex justify-between items-center text-xs">
+                        <h3 class="font-bold text-xs uppercase text-blue-800 dark:text-blue-400 tracking-widest flex items-center gap-2"><i data-lucide="boxes" class="w-4 h-4"></i> Lista Articoli</h3>
+                    </div>
+                    <div class="overflow-x-auto text-left">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
+                                <tr>
+                                    <th></th>
+                                    <th class="px-6 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors select-none" onclick="toggleStockSort('name')">
+                                        <div class="flex items-center gap-1">Prodotto / Stagione ${stockSortCol === 'name' ? `<i data-lucide="chevron-${stockSortAsc ? 'up' : 'down'}" class="w-3 h-3"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 opacity-30"></i>'}</div>
+                                    </th>
+                                    <th class="px-6 py-3 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors select-none" onclick="toggleStockSort('stock')">
+                                        <div class="flex items-center justify-center gap-1">Giacenza ${stockSortCol === 'stock' ? `<i data-lucide="chevron-${stockSortAsc ? 'up' : 'down'}" class="w-3 h-3"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 opacity-30"></i>'}</div>
+                                    </th>
+                                    <th class="px-6 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors select-none" onclick="toggleStockSort('price')">
+                                        <div class="flex items-center justify-end gap-1">Ultimo Prezzo ${stockSortCol === 'price' ? `<i data-lucide="chevron-${stockSortAsc ? 'up' : 'down'}" class="w-3 h-3"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 opacity-30"></i>'}</div>
+                                    </th>
+                                    <th class="px-6 py-3 text-right">Carichi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                ${sortedItems.map(item => `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                        <td class="px-4"><div class="w-2 h-2 rounded-full ${item.currentStock <= item.reorderLevel ? 'bg-red-500' : 'bg-green-500'}"></div></td>
+                                        <td class="px-6 py-3 font-bold text-slate-800 dark:text-slate-200">${item.name} <span class="ml-1 text-[8px] font-medium text-slate-400 dark:text-slate-500 px-1 py-0.5 rounded uppercase border dark:border-slate-600">${getSeasonName(item.seasonId)}</span></td>
+                                        <td class="px-6 py-3 text-center font-bold dark:text-slate-200">${item.currentStock}</td>
+                                        <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400 font-medium">€ ${item.lastPrice.toFixed(2)}</td>
+                                        <td class="px-6 py-3 text-right">
+                                            <button onclick="showItemDocumentsModal('${item.id}')" class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800 transition-colors p-1.5 rounded-lg inline-flex items-center justify-center shadow-sm" title="Vedi Documenti di Carico">
+                                                <i data-lucide="file-text" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.toggleStockSort = (col) => {
+            if (stockSortCol === col) stockSortAsc = !stockSortAsc;
+            else { stockSortCol = col; stockSortAsc = true; }
+            render();
+        };
+
+        window.updateStockFilter = () => {
+            stockFilterSupplier = document.getElementById('filter-stock-supplier').value;
+            render();
+        };
+
+        window.showItemDocumentsModal = (itemId) => {
+            const item = state.items.find(i => i.id === itemId);
+            if (!item) return;
+
+            const itemMovements = state.movements.filter(m => m.itemId === itemId && m.type === 'IN');
+            const uniqueBolle = Array.from(new Set(itemMovements.map(m => state.bolle.find(b => b.movementsIds.includes(m.id))).filter(Boolean)));
+
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Carichi: ${item.name}</h3>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Storico documenti di carico per questo articolo</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner custom-scrollbar">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            <tr><th class="px-4 py-2">Data</th><th class="px-4 py-2">Documento</th><th class="px-4 py-2">Fornitore</th><th class="px-4 py-2 text-center">Q.tà Acquistata</th><th class="px-4 py-2 text-right">Azioni</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                            ${uniqueBolle.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400 italic">Nessun documento di carico trovato.</td></tr>' : uniqueBolle.slice().reverse().map(bolla => {
+                                const supplier = state.suppliers.find(s => s.id === bolla.supplierId);
+                                const typeName = getDocTypeName(bolla.docTypeId);
+                                const bollaItemMovements = bolla.movementsIds.map(mid => state.movements.find(m => m.id === mid)).filter(m => m && m.itemId === itemId);
+                                const qtyInBolla = bollaItemMovements.reduce((acc, m) => acc + m.quantity, 0);
+                                
+                                return `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${bolla.date}</td>
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${typeName} ${bolla.docRef}</td>
+                                    <td class="px-4 py-3 text-slate-600 dark:text-slate-400">${supplier ? supplier.name : 'N.D.'}</td>
+                                    <td class="px-4 py-3 text-center font-bold text-green-600 dark:text-green-400">${qtyInBolla} pz</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <button onclick="viewBollaDetail('${bolla.id}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors border border-transparent dark:border-blue-700">Vedi Bolla</button>
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
+            `);
+        };
+
+        // --- DOCUMENTS VIEW ---
+        function renderDocuments(container) {
+            const filteredBolle = state.bolle.filter(bolla => {
+                const typeName = getDocTypeName(bolla.docTypeId);
+                const docFullName = `${typeName} ${bolla.docRef}`.toLowerCase();
+                const matchSearch = docFilterSearch === '' || docFullName.includes(docFilterSearch);
+                const matchDate = docFilterDate === '' || bolla.date.toLowerCase().includes(docFilterDate);
+                const matchSupplier = docFilterSupplier === '' || bolla.supplierId === docFilterSupplier;
+                return matchSearch && matchDate && matchSupplier;
+            });
+            container.innerHTML = `
+                <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                    <div><h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Archivio Documenti</h2><p class="text-sm text-slate-400 italic">Gestione dei documenti di carico</p></div>
+                    <button onclick="openMultiLoadModal()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg active:scale-95"><i data-lucide="package-plus" class="w-4 h-4"></i> Registra Documento</button>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden text-sm mb-8">
+                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-blue-50/10 dark:bg-blue-900/10 flex justify-between items-center">
+                        <h2 class="font-bold text-xs uppercase tracking-widest text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="archive" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i> Registro Storico Documenti Carico</h2>
+                    </div>
+                    <div class="px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-4 items-end">
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Cerca Documento</label>
+                            <div class="relative">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400"></i>
+                                <input type="text" id="filter-doc-search" value="${docFilterSearch}" onkeyup="updateDocFilters()" placeholder="Es. DDT o 123..." class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Data</label>
+                            <div class="relative">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400"></i>
+                                <input type="text" id="filter-doc-date" value="${docFilterDate}" onkeyup="updateDocFilters()" placeholder="Es. 15/10" class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Fornitore</label>
+                            <select id="filter-doc-supplier" onchange="updateDocFilters()" class="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                                <option value="">Tutti i fornitori</option>
+                                ${state.suppliers.map(s => `<option value="${s.id}" ${docFilterSupplier === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="pb-1.5"><button onclick="clearDocFilters()" class="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-bold uppercase transition-colors flex items-center gap-1"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Reset</button></div>
+                    </div>
+                    <div class="overflow-x-auto text-xs">
+                        <table class="w-full text-left">
+                            <thead class="bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100 dark:border-slate-700">
+                                <tr><th class="px-6 py-4">Data</th><th class="px-6 py-4">Documento</th><th class="px-6 py-4">Fornitore</th><th class="px-6 py-4 text-right">Valore Totale</th><th class="px-6 py-4 text-right">Azioni</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                ${filteredBolle.length === 0 ? `<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Nessun documento trovato.</td></tr>` : 
+                                [...filteredBolle].reverse().map(bolla => {
+                                    const val = bolla.movementsIds.reduce((acc, mid) => {
+                                        const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
+                                    }, 0);
+                                    const typeName = getDocTypeName(bolla.docTypeId);
+                                    const isExpanded = expandedDocumentId === bolla.id;
+                                    let html = `
+                                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all cursor-pointer group" onclick="toggleDocumentDetails('${bolla.id}')">
+                                            <td class="px-6 py-4 text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                                                <div class="flex items-center gap-2"><i data-lucide="chevron-${isExpanded ? 'up' : 'down'}" class="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors"></i>${bolla.date}</div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="font-bold text-slate-800 dark:text-slate-200 text-xs tracking-tight uppercase">${typeName} ${bolla.docRef}</div>
+                                                <div class="text-[9px] text-slate-400 dark:text-slate-500 font-medium uppercase mt-0.5">${bolla.movementsIds.length} Articoli (Clicca per espandere)</div>
+                                            </td>
+                                            <td class="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">${state.suppliers.find(s=>s.id===bolla.supplierId)?.name || 'N.D.'}</td>
+                                            <td class="px-6 py-4 text-right font-bold text-blue-600 dark:text-blue-400">€ ${val.toFixed(2)}</td>
+                                            <td class="px-6 py-4 text-right">
+                                                <div class="flex justify-end gap-2">
+                                                    <button onclick="event.stopPropagation(); editBollaFull('${bolla.id}')" class="text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 p-1.5 transition-colors"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                                    <button onclick="event.stopPropagation(); requestDeleteBolla('${bolla.id}')" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-1.5 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>`;
+                                    if (isExpanded) {
+                                        const itemsHtml = state.movements.filter(m => bolla.movementsIds.includes(m.id)).map(m => {
+                                            const item = state.items.find(i => i.id === m.itemId);
+                                            return `<div class="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-700/50 last:border-0"><span class="font-bold text-slate-700 dark:text-slate-300 text-[11px]">${item ? item.name : 'ELIMINATO'}</span><div class="text-right"><span class="font-bold text-slate-800 dark:text-slate-200">${m.quantity} pz</span><span class="text-slate-400 dark:text-slate-500 ml-2">a € ${parseFloat(m.price).toFixed(2)}</span></div></div>`;
+                                        }).join('');
+                                        html += `<tr class="bg-blue-50/30 dark:bg-blue-900/10"><td colspan="5" class="px-6 py-3"><div class="ml-8 pl-4 border-l-2 border-blue-300 dark:border-blue-700"><h4 class="text-[9px] font-extrabold text-blue-500 dark:text-blue-400 uppercase tracking-widest mb-2">Dettaglio Contenuto</h4>${itemsHtml}</div></td></tr>`;
+                                    }
+                                    return html;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        window.toggleDocumentDetails = (id) => { expandedDocumentId = expandedDocumentId === id ? null : id; render(); };
+        window.updateDocFilters = () => { docFilterSearch = document.getElementById('filter-doc-search').value.toLowerCase(); docFilterDate = document.getElementById('filter-doc-date').value.toLowerCase(); docFilterSupplier = document.getElementById('filter-doc-supplier').value; render(); };
+        window.clearDocFilters = () => { docFilterSearch = ''; docFilterDate = ''; docFilterSupplier = ''; render(); };
+
+        // --- MOVEMENTS VIEW ---
+        function renderMovements(container) {
+            container.innerHTML = `
+                <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Movimentazioni</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="openMultiLoadModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg active:scale-95 text-xs md:text-sm border border-transparent dark:border-green-500"><i data-lucide="package-plus" class="w-4 h-4"></i> Registra Documento</button>
+                        <button onclick="openMultiDischargeModal()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg active:scale-95 text-xs md:text-sm border border-transparent dark:border-orange-500"><i data-lucide="log-out" class="w-4 h-4"></i> Scarico Reparto</button>
+                        <button onclick="openInventoryModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg active:scale-95 text-xs md:text-sm border border-transparent dark:border-purple-500"><i data-lucide="clipboard-check" class="w-4 h-4"></i> Inventario Fisico</button>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden text-sm">
+                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/50 flex justify-between items-center"><h3 class="font-bold text-xs uppercase text-slate-500 dark:text-slate-400">Log Operazioni</h3></div>
+                    <div class="overflow-x-auto text-xs text-left">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider"><tr><th class="px-6 py-4">Data</th><th class="px-6 py-4">Prodotto</th><th class="px-6 py-4 text-right">Q.tà</th><th class="px-6 py-4 text-right">Unitario</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 font-bold">
+                                ${[...state.movements].reverse().slice(0, 30).map(mv => {
+                                    const item = state.items.find(i => i.id === mv.itemId);
+                                    return `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all text-xs">
+                                        <td class="px-6 py-4 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${mv.date}</td>
+                                        <td class="px-6 py-4 font-bold"><div class="font-bold text-slate-700 dark:text-slate-200">${item ? item.name : 'ELIMINATO'}</div><span class="px-1.5 py-0.5 ${mv.type==='IN'?'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400':'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'} text-[8px] font-extrabold rounded uppercase">${mv.type}</span>${mv.documentRef === 'Rettifica Inventario' ? `<span class="ml-1 text-[8px] text-purple-600 dark:text-purple-400 font-bold uppercase border border-purple-200 dark:border-purple-700 px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30">Rettifica</span>` : ''}</td>
+                                        <td class="px-6 py-4 text-right font-bold ${mv.type==='IN'?'text-green-600 dark:text-green-400':'text-orange-600 dark:text-orange-400'}">${mv.type==='IN'?'+':'-'}${mv.quantity}</td>
+                                        <td class="px-6 py-4 text-right text-slate-500 dark:text-slate-400">€ ${parseFloat(mv.price).toFixed(2)}</td>
+                                    </tr>`}).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- REGISTRY VIEW ---
+        function renderRegistry(container) {
+            let targetSeasonId = state.registrySeasonFilter === 'current' ? state.currentSeasonId : state.registrySeasonFilter;
+            const filteredItems = targetSeasonId === 'all' ? state.items : state.items.filter(i => i.seasonId === targetSeasonId);
+
+            container.innerHTML = `
+                <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestione Anagrafiche</h2>
+                    <div class="flex gap-2">
+                        <button onclick="openMultiItemModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-lg transition-all active:scale-95 text-sm border border-transparent dark:border-indigo-500"><i data-lucide="list-plus" class="w-4 h-4"></i> Inserimento Multiplo</button>
+                        <button onclick="openItemModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all text-sm border border-transparent dark:border-blue-500"><i data-lucide="plus" class="w-4 h-4"></i> Singolo Articolo</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 text-sm">
+                    <div class="lg:col-span-3">
+                         <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden h-fit text-sm">
+                            <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/20 dark:bg-slate-800/50 flex justify-between items-center">
+                                <h3 class="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-widest">Master Articoli</h3>
+                                <select onchange="state.registrySeasonFilter=this.value; render()" class="text-xs font-semibold border border-slate-200 dark:border-slate-600 rounded-lg p-1 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">
+                                    <option value="current" ${state.registrySeasonFilter === 'current' ? 'selected' : ''}>Stagione Attiva</option>
+                                    <option value="all" ${state.registrySeasonFilter === 'all' ? 'selected' : ''}>Tutte</option>
+                                    ${state.seasons.map(s => `<option value="${s.id}" ${state.registrySeasonFilter === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="overflow-x-auto text-xs"><table class="w-full text-left"><thead class="bg-slate-50 dark:bg-slate-900/50 text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider border-b border-slate-100 dark:border-slate-700"><tr><th class="px-6 py-3">Prodotto</th><th class="px-6 py-3 text-right">Prezzi</th><th class="px-6 py-3 text-center">Giacenza</th><th class="px-6 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                    ${filteredItems.length === 0 ? `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 dark:text-slate-500">Nessun articolo trovato.</td></tr>` : filteredItems.map(item => `
+                                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                            <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200"><div class="text-left font-bold">${item.name}</div><div class="flex gap-1.5 mt-1"><span class="text-[8px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full uppercase font-bold border border-blue-100 dark:border-blue-800">${getCategoryName(item.categoryId)}</span></div></td>
+                                            <td class="px-6 py-4 text-right text-xs"><div class="text-slate-400 dark:text-slate-500 font-medium tracking-tight text-right">Acq: € ${item.lastPrice.toFixed(2)}</div><div class="text-blue-600 dark:text-blue-400 font-bold tracking-tight text-right">Ven: € ${(item.sellingPrice || 0).toFixed(2)}</div></td>
+                                            <td class="px-6 py-4 text-center"><div class="inline-block px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-600 rounded-lg font-extrabold ${item.currentStock <= item.reorderLevel ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'text-slate-900 dark:text-slate-200'}">${item.currentStock}</div></td>
+                                            <td class="px-6 py-4 text-right flex justify-end gap-1">
+                                                <button onclick="openEditItemModal('${item.id}')" class="text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 p-1.5 transition-all"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                                                <button onclick="requestDeleteItem('${item.id}', '${item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-1.5 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                            </td>
+                                        </tr>`).join('')}
+                            </tbody></table></div>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-xs text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2 text-left">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1"><i data-lucide="truck" class="w-3 h-3 text-slate-300 dark:text-slate-500"></i> Fornitori</h4>
+                                <button onclick="openMasterModal('suppliers')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar text-left text-xs">
+                                ${state.suppliers.map(s => `
+                                    <div class="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700 group transition-all hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm text-left">
+                                        <div class="flex justify-between font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px]">
+                                            <span class="truncate mr-1">${s.name}</span>
+                                            <div class="flex gap-1 opacity-0 group-hover:opacity-100">
+                                                <button onclick="openEditMasterModal('suppliers', '${s.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                                                <button onclick="requestDeleteMaster('suppliers', '${s.id}', '${s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex flex-col gap-0.5">
+                                            <div class="flex items-center gap-1"><i data-lucide="user" class="w-2.5 h-2.5 opacity-50"></i> ${s.contactPerson || '-'}</div>
+                                            <div class="flex items-center gap-1"><i data-lucide="phone" class="w-2.5 h-2.5 opacity-50"></i> ${s.phone || '-'}</div>
+                                            <div class="flex items-center gap-1"><i data-lucide="mail" class="w-2.5 h-2.5 opacity-50"></i> ${s.email || '-'}</div>
+                                        </div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-xs text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2 text-left">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1"><i data-lucide="layers" class="w-3 h-3 text-slate-300 dark:text-slate-500"></i> Categorie</h4>
+                                <button onclick="openMasterModal('categories')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar text-xs text-left">
+                                ${state.categories.map(c => `<div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all"><span class="text-slate-700 dark:text-slate-200 font-bold">${c.name}</span><button onclick="requestDeleteMaster('categories', '${c.id}', '${c.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="opacity-0 group-hover:opacity-100 text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1"><i data-lucide="sun" class="w-3 h-3 text-slate-300 dark:text-slate-500"></i> Stagioni</h4>
+                                <button onclick="openMasterModal('seasons')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-1.5 text-left">${state.seasons.map(st => `
+                                <div class="flex items-center justify-between p-2 border ${st.id===state.currentSeasonId?'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-sm':'border-transparent bg-slate-50 dark:bg-slate-900/50'} rounded-xl transition-all group text-xs font-bold">
+                                    <span class="text-slate-700 dark:text-slate-200">${st.name}</span>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="setCurrentSeason('${st.id}')" class="text-[8px] font-extrabold text-blue-500 dark:text-blue-400 uppercase px-1 py-0.5 rounded hover:bg-white dark:hover:bg-slate-800 transition-colors">${st.id===state.currentSeasonId?'Uso':'Attiva'}</button>
+                                        <button onclick="openEditMasterModal('seasons', '${st.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                                    </div>
+                                </div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1"><i data-lucide="log-out" class="w-3 h-3 text-orange-600 dark:text-orange-500"></i> Uscite Merci</h4>
+                                <button onclick="openMasterModal('outlets')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar text-left text-xs font-bold">
+                                ${state.outlets.map(o => `
+                                    <div class="flex flex-col p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all border border-slate-100 dark:border-slate-700 hover:shadow-sm">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="text-slate-700 dark:text-slate-200 font-bold">${o.name}</span>
+                                            <div class="flex gap-1 opacity-0 group-hover:opacity-100">
+                                                <button onclick="openEditMasterModal('outlets', '${o.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                                                <button onclick="requestDeleteMaster('outlets', '${o.id}', '${o.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                            </div>
+                                        </div>
+                                        ${o.budget > 0 ? `<div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1 font-medium"><i data-lucide="target" class="w-2.5 h-2.5 opacity-50"></i> Budget: € ${o.budget.toFixed(2)}/mese</div>` : `<div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1 italic opacity-50"><i data-lucide="info" class="w-2.5 h-2.5"></i> Nessun budget</div>`}
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1 text-xs"><i data-lucide="file-text" class="w-3 h-3 text-blue-500"></i> Tipi Documento</h4>
+                                <button onclick="openMasterModal('documentTypes')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar text-left">
+                                ${state.documentTypes.map(dt => `
+                                    <div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all text-xs font-bold">
+                                        <span class="text-slate-700 dark:text-slate-200">${dt.name}</span>
+                                        <div class="flex gap-1 opacity-0 group-hover:opacity-100">
+                                            <button onclick="openEditMasterModal('documentTypes', '${dt.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                                            <button onclick="requestDeleteMaster('documentTypes', '${dt.id}', '${dt.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                        </div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+
+                        <!-- GESTIONE UTENTI -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-left">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
+                                <h4 class="font-bold text-[10px] uppercase text-slate-400 flex items-center gap-1 text-xs"><i data-lucide="users" class="w-3 h-3 text-purple-500"></i> Gestione Utenti</h4>
+                                <button onclick="openUserModal()" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar text-left">
+                                ${state.users.map(u => `
+                                    <div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all text-xs font-bold">
+                                        <div class="flex flex-col">
+                                            <span class="text-slate-700 dark:text-slate-200">${u.username}</span>
+                                            <span class="text-[8px] text-slate-400 uppercase tracking-tighter">${u.role}</span>
+                                        </div>
+                                        <div class="flex gap-1 opacity-0 group-hover:opacity-100">
+                                            <button onclick="openUserModal('${u.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
+                                            <button onclick="requestDeleteUser('${u.id}', '${u.username.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                        </div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // --- GESTIONE MODALI E AZIONI ---
+        window.openMasterModal = function(type) {
+            const labels = { suppliers: 'Fornitore', outlets: 'Destinazione', categories: 'Categoria', seasons: 'Stagione', documentTypes: 'Tipo Documento' };
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white">Nuova ${labels[type]}</h3>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <form id="master-form" class="space-y-4 text-left">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ragione Sociale / Nome</label>
+                        <input type="text" name="name" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    ${type==='outlets' ? `
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Budget Mensile (€)</label>
+                            <input type="number" step="0.01" name="budget" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Es. 500 (lascia vuoto per nessun budget)">
+                        </div>
+                    ` : ''}
+                    ${type==='suppliers' ? `
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referente / Contatto</label><input type="text" name="contactPerson" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Telefono</label><input type="text" name="phone" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Email</label><input type="email" name="email" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                        </div>
+                    ` : ''}
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button type="submit" class="flex-1 bg-slate-800 dark:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg">Salva</button>
+                    </div>
+                </form>`);
+            document.getElementById('master-form').onsubmit = (e) => { 
+                e.preventDefault(); const d = new FormData(e.target); 
+                const entry = { id: 'm'+Date.now(), name: d.get('name') }; 
+                if(type==='suppliers'){ entry.contactPerson = d.get('contactPerson'); entry.phone=d.get('phone'); entry.email=d.get('email'); } 
+                else if (type==='outlets') { entry.budget = parseFloat(d.get('budget')) || 0; }
+                state[type].push(entry); saveData(true, "Aggiunta voce"); closeModal(); render(); 
+            };
+        }
+        
+        window.openEditMasterModal = function(type, id) {
+            const item = state[type].find(x => x.id === id);
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Modifica</h3>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <form id="edit-form" class="space-y-4 text-left">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Nome</label>
+                        <input type="text" name="name" value="${item.name.replace(/"/g, '&quot;')}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    ${type==='outlets' ? `
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Budget Mensile (€)</label>
+                            <input type="number" step="0.01" name="budget" value="${item.budget || ''}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Es. 500">
+                        </div>
+                    ` : ''}
+                    ${type==='suppliers' ? `
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referente</label><input type="text" name="contactPerson" value="${item.contactPerson || ''}" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Tel</label><input type="text" name="phone" value="${item.phone || ''}" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Email</label><input type="email" name="email" value="${item.email || ''}" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                        </div>
+                    ` : ''}
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Chiudi</button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold shadow-md">Applica</button>
+                    </div>
+                </form>`);
+            document.getElementById('edit-form').onsubmit = (e) => { 
+                e.preventDefault(); const d = new FormData(e.target); 
+                item.name = d.get('name'); 
+                if(type==='suppliers'){ item.contactPerson = d.get('contactPerson'); item.phone=d.get('phone'); item.email=d.get('email'); } 
+                else if (type==='outlets') { item.budget = parseFloat(d.get('budget')) || 0; }
+                saveData(true, "Modifica voce"); closeModal(); render(); 
+            };
+        }
+
+        window.openItemModal = function() {
+            if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Nuovo Articolo</h3>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <form id="item-form" class="space-y-4 text-left text-sm font-medium">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrizione</label>
+                        <input type="text" name="name" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stagione</label><select name="seasonId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white">${state.seasons.map(s=>`<option value="${s.id}" ${s.id===state.currentSeasonId?'selected':''}>${s.name}</option>`).join('')}</select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoria</label><select name="categoryId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white">${state.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 p-4 bg-blue-50/30 dark:bg-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 shadow-inner">
+                        <div><label class="text-blue-600 dark:text-blue-400 uppercase text-[10px] font-bold">Acquisto (€)</label><input type="number" step="0.01" name="price" required class="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"></div>
+                        <div><label class="text-blue-600 dark:text-blue-400 uppercase text-[10px] font-bold">Vendita (€)</label><input type="number" step="0.01" name="sellingPrice" required class="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-blue-700 dark:text-blue-400"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase">U.M.</label><select name="uomId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs">${state.uoms.map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}</select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase">Riordino</label><input type="number" name="reorderLevel" value="10" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Giacenza Iniziale</label>
+                        <input type="number" name="initialStock" value="0" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-xl font-extrabold shadow-lg active:scale-95 transition-all">Salva Articolo</button>
+                </form>`);
+            document.getElementById('item-form').onsubmit = (e) => {
+                e.preventDefault(); const d = new FormData(e.target); const initQty = parseInt(d.get('initialStock')) || 0;
+                const newItem = { id: 'i'+Date.now(), name: d.get('name'), seasonId: d.get('seasonId'), categoryId: d.get('categoryId'), uomId: d.get('uomId'), lastPrice: parseFloat(d.get('price')), sellingPrice: parseFloat(d.get('sellingPrice')), reorderLevel: parseInt(d.get('reorderLevel')), currentStock: initQty };
+                if (initQty > 0) state.movements.push({ id: 'mv-init-'+Date.now(), itemId: newItem.id, type: 'IN', quantity: initQty, price: newItem.lastPrice, date: new Date().toLocaleDateString('it-IT'), documentRef: 'Giacenza Iniziale' });
+                state.items.push(newItem); saveData(true, "Nuovo Articolo"); closeModal(); render();
+            };
+        }
+
+        window.openMultiItemModal = function() {
+            if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
+            if (pendingNewItems.length === 0) { setTimeout(() => document.getElementById('mi-name')?.focus(), 50); }
+            
+            const refreshMultiItemModal = () => {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="flex justify-between items-center mb-6 text-left">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2"><i data-lucide="list-plus" class="text-indigo-600"></i> Inserimento Multiplo Articoli</h3>
+                        <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                    </div>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6 shadow-inner text-left">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stagione (Applicata a tutti)</label>
+                                <select id="mi-season" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    ${state.seasons.map(s=>`<option value="${s.id}" ${s.id===state.currentSeasonId?'selected':''}>${s.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end border-t border-slate-200 dark:border-slate-700 pt-4">
+                            <div class="md:col-span-2">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Descrizione *</label>
+                                <input type="text" id="mi-name" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Es. Coca Cola">
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Categoria</label>
+                                <select id="mi-category" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    ${state.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">U.M.</label>
+                                <select id="mi-uom" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    ${state.uoms.map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Acquisto €</label>
+                                <input type="number" step="0.01" id="mi-price" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value="0">
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase">Vendita €</label>
+                                <input type="number" step="0.01" id="mi-sell" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value="0">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mt-3">
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Riordino</label>
+                                <input type="number" id="mi-reorder" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value="10">
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Giacenza Iniziale</label>
+                                <input type="number" id="mi-stock" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value="0">
+                            </div>
+                            <div class="md:col-span-2">
+                                <button onclick="addPendingNewItem();" class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-indigo-700">Aggiungi alla lista sotto</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 uppercase">
+                                <tr><th class="px-4 py-2">Descrizione</th><th class="px-4 py-2">Cat / U.M.</th><th class="px-4 py-2 text-right">Prezzi (Acq/Ven)</th><th class="px-4 py-2 text-center">Giacenza</th><th class="px-4 py-2"></th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                ${pendingNewItems.length === 0 ? `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">Nessun articolo pronto per l'inserimento</td></tr>` : pendingNewItems.map((p, idx) => `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-300 text-xs">${p.name}</td>
+                                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">${getCategoryName(p.categoryId)} / ${getUomName(p.uomId)}</td>
+                                    <td class="px-4 py-2 text-right font-medium dark:text-slate-300">€${p.price.toFixed(2)} / €${p.sellingPrice.toFixed(2)}</td>
+                                    <td class="px-4 py-2 text-center dark:text-slate-200">${p.initialStock}</td>
+                                    <td class="px-4 py-2 text-right"><button onclick="pendingNewItems.splice(${idx}, 1); refreshMultiItemModal()" class="text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="flex gap-3 text-left">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="finalizeMultiItems()" class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 ${pendingNewItems.length===0?'opacity-50 pointer-events-none':''}">Salva ${pendingNewItems.length} Articoli</button>
+                    </div>`;
+                lucide.createIcons();
+            };
+            
+            window.refreshMultiItemModal = refreshMultiItemModal; 
+            openModal(''); 
+            refreshMultiItemModal();
+        };
+
+        window.addPendingNewItem = function() {
+            const nameInput = document.getElementById('mi-name');
+            const name = nameInput.value.trim();
+            if(!name) { showNotification("Inserisci la descrizione dell'articolo"); return; }
+            
+            const categoryId = document.getElementById('mi-category').value;
+            const uomId = document.getElementById('mi-uom').value;
+            const price = parseFloat(document.getElementById('mi-price').value) || 0;
+            const sellingPrice = parseFloat(document.getElementById('mi-sell').value) || 0;
+            const reorderLevel = parseInt(document.getElementById('mi-reorder').value) || 0;
+            const initialStock = parseInt(document.getElementById('mi-stock').value) || 0;
+            const seasonId = document.getElementById('mi-season').value;
+
+            pendingNewItems.push({ name, seasonId, categoryId, uomId, price, sellingPrice, reorderLevel, initialStock });
+            
+            window.refreshMultiItemModal();
+
+            setTimeout(() => {
+                const newNameInput = document.getElementById('mi-name');
+                if(newNameInput) {
+                    newNameInput.value = '';
+                    newNameInput.focus();
+                }
+                document.getElementById('mi-price').value = '0';
+                document.getElementById('mi-sell').value = '0';
+                document.getElementById('mi-stock').value = '0';
+            }, 10);
+        };
+
+        window.finalizeMultiItems = function() {
+            if(pendingNewItems.length === 0) return;
+            const dateStr = new Date().toLocaleDateString('it-IT');
+            let addedCount = 0;
+            
+            pendingNewItems.forEach(p => {
+                const newItem = { 
+                    id: 'i' + Date.now() + Math.floor(Math.random() * 1000), 
+                    name: p.name, 
+                    seasonId: p.seasonId, 
+                    categoryId: p.categoryId, 
+                    uomId: p.uomId, 
+                    lastPrice: p.price, 
+                    sellingPrice: p.sellingPrice, 
+                    reorderLevel: p.reorderLevel, 
+                    currentStock: p.initialStock 
+                };
+                if (p.initialStock > 0) {
+                    state.movements.push({ 
+                        id: 'mv-init-' + Date.now() + Math.floor(Math.random() * 1000), 
+                        itemId: newItem.id, 
+                        type: 'IN', 
+                        quantity: p.initialStock, 
+                        price: newItem.lastPrice, 
+                        date: dateStr, 
+                        documentRef: 'Giacenza Iniziale (Multipla)' 
+                    });
+                }
+                state.items.push(newItem);
+                addedCount++;
+            });
+            
+            saveData(true, `Inserimento Multiplo (${addedCount} art.)`); 
+            closeModal(); 
+            render(); 
+            showNotification(`${addedCount} articoli inseriti con successo`);
+            pendingNewItems = [];
+        };
+        
+        window.openEditItemModal = function(id) {
+            const item = state.items.find(i => i.id === id);
+            if (!item) return;
+            
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Modifica Articolo</h3>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <form id="edit-item-form" class="space-y-4 text-left text-sm font-medium">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Descrizione</label>
+                        <input type="text" name="name" value="${item.name.replace(/"/g, '&quot;')}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stagione</label><select name="seasonId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white">${state.seasons.map(s=>`<option value="${s.id}" ${s.id===item.seasonId?'selected':''}>${s.name}</option>`).join('')}</select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categoria</label><select name="categoryId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white">${state.categories.map(c=>`<option value="${c.id}" ${c.id===item.categoryId?'selected':''}>${c.name}</option>`).join('')}</select></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 p-4 bg-blue-50/30 dark:bg-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 shadow-inner">
+                        <div><label class="text-blue-600 dark:text-blue-400 uppercase text-[10px] font-bold">Acquisto (€)</label><input type="number" step="0.01" name="price" value="${item.lastPrice}" required class="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"></div>
+                        <div><label class="text-blue-600 dark:text-blue-400 uppercase text-[10px] font-bold">Vendita (€)</label><input type="number" step="0.01" name="sellingPrice" value="${item.sellingPrice || 0}" required class="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-blue-700 dark:text-blue-400"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase">U.M.</label><select name="uomId" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs">${state.uoms.map(u=>`<option value="${u.id}" ${u.id===item.uomId?'selected':''}>${u.name}</option>`).join('')}</select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 uppercase">Riordino</label><input type="number" name="reorderLevel" value="${item.reorderLevel}" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"></div>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all">Salva Modifiche</button>
+                    </div>
+                </form>`);
+            
+            document.getElementById('edit-item-form').onsubmit = (e) => {
+                e.preventDefault(); 
+                const d = new FormData(e.target); 
+                item.name = d.get('name');
+                item.seasonId = d.get('seasonId');
+                item.categoryId = d.get('categoryId');
+                item.uomId = d.get('uomId');
+                item.lastPrice = parseFloat(d.get('price'));
+                item.sellingPrice = parseFloat(d.get('sellingPrice'));
+                item.reorderLevel = parseInt(d.get('reorderLevel'));
+                
+                saveData(true, "Modifica Articolo"); 
+                closeModal(); 
+                render();
+            };
+        }
+
+        window.requestDeleteItem = function(id, name) { 
+            openModal(`
+                <div class="text-center p-4">
+                    <h3 class="font-bold mb-4 italic text-slate-800 dark:text-white">Eliminare definitivamente l'articolo selezionato?</h3>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">No</button>
+                        <button onclick="state.items=state.items.filter(i=>i.id!=='${id}');saveData(true,'Elimina item');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
+                    </div>
+                </div>`); 
+        }
+
+        window.requestDeleteMaster = function(type, id, name) {
+            const isUsed = (type==='categories' && state.items.some(i=>i.categoryId===id)) || 
+                           (type==='outlets' && state.movements.some(m=>m.outletId===id)) || 
+                           (type==='seasons' && state.items.some(i=>i.seasonId===id)) || 
+                           (type==='suppliers' && state.bolle.some(b=>b.supplierId===id)) || 
+                           (type==='documentTypes' && state.bolle.some(b=>b.docTypeId===id));
+            if(isUsed) { showNotification("Impossibile eliminare: anagrafica in uso!"); return; }
+            openModal(`
+                <div class="text-center p-4">
+                    <h3 class="font-bold mb-4 italic text-slate-800 dark:text-white">Rimuovere ${name}?</h3>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">No</button>
+                        <button onclick="state['${type}']=state['${type}'].filter(x=>x.id!=='${id}');saveData(true,'Elimina master');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-md md:font-extrabold">Sì, elimina</button>
+                    </div>
+                </div>`);
+        }
+
+        // --- GESTIONE UTENTI ---
+        window.openUserModal = function(id = null) {
+            const user = id ? state.users.find(u => u.id === id) : null;
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left">
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white">${id ? 'Modifica Utente' : 'Nuovo Utente'}</h3>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <form id="user-form" class="space-y-4 text-left">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Username</label>
+                        <input type="text" name="username" value="${user ? user.username : ''}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password</label>
+                        <input type="password" name="password" value="${user ? user.password : ''}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ruolo</label>
+                        <select name="role" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="Amministratore" ${user?.role === 'Amministratore' ? 'selected' : ''}>Amministratore</option>
+                            <option value="Operatore" ${user?.role === 'Operatore' ? 'selected' : ''}>Operatore</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button type="submit" class="flex-1 bg-slate-800 dark:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg">Salva</button>
+                    </div>
+                </form>`);
+            
+            document.getElementById('user-form').onsubmit = (e) => {
+                e.preventDefault();
+                const d = new FormData(e.target);
+                if (id) {
+                    const idx = state.users.findIndex(u => u.id === id);
+                    state.users[idx] = { ...state.users[idx], username: d.get('username'), password: d.get('password'), role: d.get('role') };
+                } else {
+                    state.users.push({ id: 'u-'+Date.now(), username: d.get('username'), password: d.get('password'), role: d.get('role') });
+                }
+                saveData(true, "Gestione Utenti"); closeModal(); render();
+            };
+        };
+
+        window.requestDeleteUser = function(id, name) {
+            if (state.users.length <= 1) { showNotification("Impossibile eliminare l'ultimo utente!"); return; }
+            if (currentUser && currentUser.id === id) { showNotification("Non puoi eliminare l'utente connesso!"); return; }
+            openModal(`
+                <div class="text-center p-4">
+                    <div class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 text-slate-800 dark:text-white">Elimina Utente</h3>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm italic">Rimuovere l'accesso per <b>${name}</b>?</p>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="state.users=state.users.filter(u=>u.id!=='${id}');saveData(true,'Elimina Utente');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
+                    </div>
+                </div>`);
+        };
+
+        // --- EXPORT E ORDINI ---
+        window.exportDataToCSV = () => {
+            if (state.items.length === 0) { showNotification("Nessun dato da esportare!"); return; }
+            
+            const headers = ["ID", "Nome Articolo", "Stagione", "Categoria", "U.M.", "Prezzo Acquisto", "Prezzo Vendita", "Giacenza Attuale", "Soglia Riordino", "Ultimo Fornitore"];
+            const rows = state.items.map(item => {
+                const inMovements = state.movements.filter(m => m.itemId === item.id && m.type === 'IN' && m.supplierId);
+                let lastSupplierName = "Nessuno/Manuale";
+                if (inMovements.length > 0) {
+                    const lastSupplierId = inMovements[inMovements.length - 1].supplierId;
+                    const supplier = state.suppliers.find(s => s.id === lastSupplierId);
+                    if (supplier) lastSupplierName = supplier.name;
+                }
+
+                return [
+                    item.id,
+                    `"${item.name.replace(/"/g, '""')}"`, 
+                    `"${getSeasonName(item.seasonId)}"`,
+                    `"${getCategoryName(item.categoryId)}"`,
+                    `"${getUomName(item.uomId)}"`,
+                    item.lastPrice || 0,
+                    item.sellingPrice || 0,
+                    item.currentStock || 0,
+                    item.reorderLevel || 0,
+                    `"${lastSupplierName.replace(/"/g, '""')}"`
+                ].join(";"); 
+            });
+
+            const csvContent = headers.join(";") + "\n" + rows.join("\n");
+            const bom = "\uFEFF"; 
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `HotelStock_Anagrafica_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification("Esportazione CSV completata");
+        };
+
+        window.openOrderGenerationModal = () => {
+            const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
+            const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
+
+            if (lowStockItems.length === 0) {
+                showNotification("Nessun articolo sottoscorta.");
+                return;
+            }
+
+            const ordersBySupplier = {};
+
+            lowStockItems.forEach(item => {
+                const inMovements = state.movements.filter(m => m.itemId === item.id && m.type === 'IN' && m.supplierId);
+                let lastSupplierId = "unknown";
+                let lastSupplierName = "Fornitore Non Assegnato / Manuale";
+
+                if (inMovements.length > 0) {
+                    lastSupplierId = inMovements[inMovements.length - 1].supplierId;
+                    const supplier = state.suppliers.find(s => s.id === lastSupplierId);
+                    if (supplier) lastSupplierName = supplier.name;
+                }
+
+                if (!ordersBySupplier[lastSupplierId]) {
+                    ordersBySupplier[lastSupplierId] = {
+                        supplierName: lastSupplierName,
+                        items: []
+                    };
+                }
+
+                const suggestedQty = Math.max((item.reorderLevel * 2) - item.currentStock, 1);
+
+                ordersBySupplier[lastSupplierId].items.push({
+                    ...item,
+                    suggestedQty: suggestedQty
+                });
+            });
+
+            let htmlContent = `
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Proposte d'Ordine</h3>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Articoli Sottoscorta divisi per Ultimo Fornitore</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 space-y-6 mb-6">
+            `;
+
+            Object.entries(ordersBySupplier).forEach(([supplierId, order]) => {
+                const safeNameForAttr = order.supplierName.replace(/"/g, '&quot;');
+                const safeNameForJS = order.supplierName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
+                htmlContent += `
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                        <div class="bg-blue-50/50 dark:bg-blue-900/20 px-4 py-3 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
+                            <h4 class="font-bold text-blue-800 dark:text-blue-400 text-xs uppercase flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i> ${order.supplierName}</h4>
+                            <div class="flex gap-2">
+                                <button onclick="sendOrderEmail('${supplierId}', '${safeNameForJS}')" class="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-bold transition-all flex items-center gap-1 shadow-sm"><i data-lucide="file-text" class="w-3 h-3"></i> Genera Testo</button>
+                                <button onclick="copyOrderToClipboard('${safeNameForJS}')" class="text-[10px] bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-bold transition-all flex items-center gap-1 shadow-sm" title="Copia testo ordine"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                            </div>
+                        </div>
+                        <table class="w-full text-left text-xs">
+                            <thead class="text-[9px] uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-700">
+                                <tr><th class="px-4 py-2">Articolo</th><th class="px-4 py-2 text-center">Giacenza</th><th class="px-4 py-2 text-center text-blue-600 dark:text-blue-400 font-bold">Q.tà Suggerita</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 bg-white dark:bg-slate-800">
+                                ${order.items.map(item => `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                        <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-200">${item.name}</td>
+                                        <td class="px-4 py-2 text-center text-red-500 dark:text-red-400 font-bold">${item.currentStock}</td>
+                                        <td class="px-4 py-2 text-center">
+                                            <input type="number" value="${item.suggestedQty}" min="1" class="w-16 text-center border border-slate-200 dark:border-slate-600 rounded py-1 text-blue-600 dark:text-blue-400 font-bold focus:ring-2 focus:ring-blue-500 outline-none order-qty-input shadow-inner bg-slate-50 dark:bg-slate-900" data-supplier="${safeNameForAttr}" data-item="${item.name.replace(/"/g, '&quot;')}">
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+
+            htmlContent += `
+                </div>
+                <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700 pt-4">
+                    <button onclick="closeModal()" class="px-6 py-2.5 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors shadow-lg">Chiudi Pannello</button>
+                </div>
+            `;
+
+            openModal(htmlContent);
+        };
+
+        window.copyOrderToClipboard = (supplierName) => {
+            const safeSupplierName = supplierName.replace(/"/g, '\\"');
+            const inputs = document.querySelectorAll(`.order-qty-input[data-supplier="${safeSupplierName}"]`);
+            let text = `ORDINE PER: ${supplierName}\nDATA: ${new Date().toLocaleDateString('it-IT')}\n\n`;
+            
+            let hasItems = false;
+            inputs.forEach(input => {
+                const itemName = input.getAttribute('data-item');
+                const qty = input.value;
+                if(parseInt(qty) > 0) {
+                    text += `- ${qty}x ${itemName}\n`;
+                    hasItems = true;
+                }
+            });
+
+            if(!hasItems) {
+                showNotification("Nessuna quantità inserita!");
+                return;
+            }
+
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification("Copiato! Pronto per Email/WhatsApp");
+            } catch (err) {
+                showNotification("Errore durante la copia.");
+            }
+            document.body.removeChild(textArea);
+        };
+
+        window.sendOrderEmail = (supplierId, supplierName) => {
+            const supplier = state.suppliers.find(s => s.id === supplierId);
+            const supplierEmail = supplier && supplier.email ? supplier.email : "[Email non specificata]";
+            
+            const safeSupplierName = supplierName.replace(/"/g, '\\"');
+            const inputs = document.querySelectorAll(`.order-qty-input[data-supplier="${safeSupplierName}"]`);
+            
+            let hasItems = false;
+            let orderItemsText = "";
+            
+            inputs.forEach(input => {
+                const itemName = input.getAttribute('data-item');
+                const qty = input.value;
+                if(parseInt(qty) > 0) {
+                    orderItemsText += `- ${qty} pz x ${itemName}\n`;
+                    hasItems = true;
+                }
+            });
+
+            if(!hasItems) {
+                showNotification("Nessuna quantità inserita!");
+                return;
+            }
+
+            const subject = `Ordine Fornitura - ${new Date().toLocaleDateString('it-IT')}`;
+            const bodyText = `A: ${supplierEmail}\nOggetto: ${subject}\n\nBuongiorno,\n\nCon la presente vi trasmettiamo il nostro ordine di fornitura:\n\n${orderItemsText}\nRestiamo in attesa di una vostra gentile conferma di ricezione e dei tempi di consegna.\n\nCordiali saluti,\nLa Direzione`;
+
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Anteprima Email</h3>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Copia e incolla nel tuo client di posta</p>
+                    </div>
+                    <button onclick="openOrderGenerationModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <textarea id="generated-email-text" class="w-full h-64 p-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 custom-scrollbar" readonly>${bodyText}</textarea>
+                <div class="flex gap-3">
+                    <button onclick="openOrderGenerationModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Indietro</button>
+                    <button onclick="copyGeneratedEmail()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> Copia Tutto</button>
+                </div>
+            `);
+            lucide.createIcons();
+        };
+
+        window.copyGeneratedEmail = () => {
+            const textArea = document.getElementById("generated-email-text");
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification("Testo copiato negli appunti!");
+            } catch (err) {
+                showNotification("Errore durante la copia.");
+            }
+        };
+
+        // --- INTEGRAZIONE GOOGLE SHEETS CLOUD ---
+        const GOOGLE_WEB_APP_URL = ""; 
+
+        window.onload = () => {
+            if (GOOGLE_WEB_APP_URL && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                fetch(GOOGLE_WEB_APP_URL)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.status === 'success' && result.data) {
+                            window.initCloudData(result.data);
+                        } else {
+                            window.initCloudData(null);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Errore fetch Google Sheets", err);
+                        window.initCloudData(null); 
+                    });
+            } else {
+                console.warn("Nessun link Google Sheets inserito. Avvio in modalità Offline/Locale.");
+                window.initCloudData(null);
+            }
+        };
+
+        window.onSaveToCloud = async (newState) => {
+            if (GOOGLE_WEB_APP_URL && GOOGLE_WEB_APP_URL.startsWith("http")) {
+                try {
+                    const response = await fetch(GOOGLE_WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ state: newState }),
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                    });
+                    const result = await response.json();
+                    if (result.status !== 'success') {
+                        console.error("Errore dal server Google:", result.message);
+                        if(typeof window.showNotification === 'function') window.showNotification("Errore di scrittura su Foglio Google.");
+                    }
+                } catch (e) {
+                    console.error("Salvataggio su Google Sheets fallito", e);
+                    if(typeof window.showNotification === 'function') window.showNotification("Salvataggio cloud fallito. Controlla la connessione.");
+                }
+            }
+        };
+
+    </script>
+</body>
+</html>
