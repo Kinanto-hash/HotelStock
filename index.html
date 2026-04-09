@@ -140,7 +140,7 @@
     </div>
 
     <script>
-        // --- GLOBAL VARIABLES & UTILS ---
+        // --- 1. GLOBAL VARIABLES & STATE ---
         var state = {
             items: [], categories: [], uoms: [], suppliers: [], seasons: [], outlets: [], documentTypes: [], users: [],
             currentSeasonId: null, movements: [], bolle: [], versionHistory: [],
@@ -171,6 +171,7 @@
         let docFilterDate = '';
         let docFilterSupplier = '';
 
+        // --- 2. UTILITY FUNCTIONS ---
         window.showNotification = function(text) {
             const t = document.getElementById('notification');
             const textEl = document.getElementById('notification-text');
@@ -215,7 +216,7 @@
 
         function handleOverlayClick(e) { if (e.target.id === 'modal-overlay') closeModal(); }
 
-        // --- INIT & PERSISTENCE ---
+        // --- 3. INIT & CORE FLOW ---
         window.initCloudData = function(cloudState) {
             if (cloudState) {
                 state = cloudState;
@@ -263,9 +264,9 @@
                 loader.classList.add('opacity-0');
                 setTimeout(() => loader.classList.add('hidden'), 300);
             }
-        }
+        };
 
-        function renderLogin() {
+        window.renderLogin = function() {
             const select = document.getElementById('login-user-select');
             if(select) {
                 select.innerHTML = state.users.map(u => `<option value="${u.id}" class="dark:bg-slate-800">${u.username}</option>`).join('');
@@ -276,7 +277,7 @@
             document.getElementById('user-profile').classList.add('hidden');
             document.getElementById('user-profile').classList.remove('flex');
             document.getElementById('app').classList.add('blur-sm', 'pointer-events-none');
-        }
+        };
 
         window.handleLogin = function(e) {
             if(e) e.preventDefault();
@@ -310,7 +311,7 @@
             showNotification("Disconnesso con successo");
         };
 
-        function saveData(createSnapshot = true, label = "Aggiornamento dati") {
+        window.saveData = function(createSnapshot = true, label = "Aggiornamento dati") {
             if (createSnapshot) {
                 const snapshot = {
                     id: Date.now(),
@@ -340,9 +341,9 @@
             if (typeof window.onSaveToCloud === 'function') {
                 window.onSaveToCloud(state);
             }
-        }
+        };
 
-        function updateVersionSelector() {
+        window.updateVersionSelector = function() {
             const selector = document.getElementById('version-selector');
             if (!selector) return;
             selector.innerHTML = '<option value="" class="dark:bg-slate-800">Cronologia Versioni...</option>';
@@ -351,9 +352,9 @@
                 option.value = index; option.className = "dark:bg-slate-800"; option.textContent = `${v.timestamp} - ${v.label}`;
                 selector.appendChild(option);
             });
-        }
+        };
 
-        function updateSeasonIndicator() {
+        window.updateSeasonIndicator = function() {
             const indicator = document.getElementById('active-season-indicator');
             if (!indicator) return;
             const season = state.seasons.find(s => s.id === state.currentSeasonId);
@@ -361,7 +362,7 @@
                 ? `<i data-lucide="sun" class="w-3 h-3 text-orange-400"></i> Stagione: ${season.name}`
                 : `<i data-lucide="alert-circle" class="w-3 h-3 text-red-400"></i> No Stagione`;
             lucide.createIcons();
-        }
+        };
         
         window.setCurrentSeason = function(id) {
             state.currentSeasonId = id;
@@ -383,7 +384,7 @@
                     </div>
                 </div>
             `);
-        }
+        };
 
         window.confirmRestore = function(index) {
             const versionData = state.versionHistory[index].data;
@@ -391,19 +392,19 @@
             state = { ...versionData, versionHistory: history, activeTab: state.activeTab };
             saveData(false); closeModal(); render(); showNotification("Backup ripristinato");
             document.getElementById('version-selector').value = "";
-        }
+        };
 
-        window.createManualVersion = function() { saveData(true, "Manuale"); showNotification("Versione salvata"); }
-        window.switchTab = function(tab) { state.activeTab = tab; render(); }
+        window.createManualVersion = function() { saveData(true, "Manuale"); showNotification("Versione salvata"); };
+        window.switchTab = function(tab) { state.activeTab = tab; render(); };
 
-        function updateNavStyles() {
+        window.updateNavStyles = function() {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
                 if (btn.dataset.tab === state.activeTab) btn.classList.add('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
             });
-        }
+        };
 
-        function render() {
+        window.render = function() {
             const container = document.getElementById('content-area');
             updateNavStyles();
             switch(state.activeTab) {
@@ -414,10 +415,10 @@
                 case 'registry': renderRegistry(container); break;
             }
             lucide.createIcons();
-        }
+        };
 
-        // --- DASHBOARD ---
-        function renderDashboard(container) {
+        // --- 4. RENDER FUNCTIONS (VIEWS) ---
+        window.renderDashboard = function(container) {
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
             const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
             const totalCostValue = filteredItems.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
@@ -603,7 +604,7 @@
             setTimeout(renderCharts, 0);
         }
 
-        function renderCharts() {
+        window.renderCharts = function() {
             if(Object.keys(myCharts).length > 0) { Object.values(myCharts).forEach(c => c.destroy()); myCharts = {}; }
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
 
@@ -681,139 +682,9 @@
             if(ctx3) myCharts.c3 = new Chart(ctx3, createChartConfig(supplierSpend, 'doughnut', window.showSupplierDetailsModal, true));
             const ctx4 = document.getElementById('chartSalesCategory');
             if(ctx4) myCharts.c4 = new Chart(ctx4, createChartConfig(salesByCategoryData, 'pie', window.showSalesDetailsModal, true));
-        }
-
-        window.showCategoryDetailsModal = (categoryName) => {
-            const category = state.categories.find(c => c.name === categoryName);
-            if (!category) return;
-            const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
-            const itemsInCat = filteredItems.filter(i => i.categoryId === category.id && i.currentStock > 0);
-            const totalVal = itemsInCat.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
-            const totalQty = itemsInCat.reduce((acc, i) => acc + i.currentStock, 0);
-
-            openModal(`
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Categoria: ${categoryName}</h3>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Totale: ${totalQty} pz | Valore: € ${totalVal.toFixed(2)}</p>
-                    </div>
-                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
-                </div>
-                <div class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner">
-                    <table class="w-full text-xs text-left">
-                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                            <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Prezzo Unit.</th><th class="px-4 py-2 text-right">Valore Tot.</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
-                            ${itemsInCat.length === 0 ? '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">Nessun articolo in giacenza in questa categoria.</td></tr>' : itemsInCat.map(i => `
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${i.name}</td>
-                                    <td class="px-4 py-3 text-center font-medium dark:text-slate-300">${i.currentStock}</td>
-                                    <td class="px-4 py-3 text-right text-slate-500 dark:text-slate-400">€ ${i.lastPrice.toFixed(2)}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${(i.currentStock * i.lastPrice).toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
-            `);
         };
 
-        window.showSupplierDetailsModal = (supplierName) => {
-            const supplier = state.suppliers.find(s => s.name === supplierName);
-            if (!supplier) return;
-
-            const bolleDelFornitore = state.bolle.filter(b => b.supplierId === supplier.id);
-            const totalSpend = bolleDelFornitore.reduce((totalAcc, bolla) => {
-                const bollaVal = bolla.movementsIds.reduce((acc, mid) => {
-                    const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
-                }, 0);
-                return totalAcc + bollaVal;
-            }, 0);
-            
-            openModal(`
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Fornitore: ${supplierName}</h3>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Totale Documenti: ${bolleDelFornitore.length} | Spesa Totale: € ${totalSpend.toFixed(2)}</p>
-                    </div>
-                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
-                </div>
-                <div class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner">
-                    <table class="w-full text-xs text-left">
-                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                            <tr><th class="px-4 py-2">Data</th><th class="px-4 py-2">Documento</th><th class="px-4 py-2 text-right">Valore</th><th class="px-4 py-2 text-right">Azioni</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
-                            ${bolleDelFornitore.length === 0 ? '<tr><td colspan="4" class="px-4 py-6 text-center text-slate-400 italic">Nessun documento trovato.</td></tr>' : bolleDelFornitore.slice().reverse().map(bolla => {
-                                const val = bolla.movementsIds.reduce((acc, mid) => {
-                                    const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
-                                }, 0);
-                                return `
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td class="px-4 py-3 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${bolla.date}</td>
-                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${getDocTypeName(bolla.docTypeId)} ${bolla.docRef}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${val.toFixed(2)}</td>
-                                    <td class="px-4 py-3 text-right"><button onclick="viewBollaDetail('${bolla.id}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors border border-transparent dark:border-blue-700">Vedi</button></td>
-                                </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
-            `);
-        };
-
-        window.showTotalSalesDetailsModal = () => {
-            const allSales = {};
-            let totalVal = 0, totalQty = 0;
-            state.movements.forEach(mv => {
-                if (mv.type === 'OUT') {
-                    const item = state.items.find(i => i.id === mv.itemId);
-                    if (state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId)) {
-                        const itemName = item ? item.name : 'Articolo Eliminato';
-                        const itemId = item ? item.id : 'deleted';
-                        if (!allSales[itemId]) allSales[itemId] = { name: itemName, qty: 0, val: 0 };
-                        allSales[itemId].qty += mv.quantity;
-                        allSales[itemId].val += (mv.quantity * mv.price);
-                        totalQty += mv.quantity; totalVal += (mv.quantity * mv.price);
-                    }
-                }
-            });
-            const sortedSales = Object.values(allSales).sort((a, b) => b.val - a.val);
-            openModal(`
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Totale Venduto</h3>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Volume Complessivo: ${totalQty} pz | Incasso Globale: € ${totalVal.toFixed(2)}</p>
-                    </div>
-                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
-                </div>
-                <div class="max-h-[60vh] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner custom-scrollbar">
-                    <table class="w-full text-xs text-left">
-                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                            <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà Venduta</th><th class="px-4 py-2 text-right">Incasso Tot.</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
-                            ${sortedSales.length === 0 ? '<tr><td colspan="3" class="px-4 py-6 text-center text-slate-400 italic">Nessuna vendita registrata.</td></tr>' : sortedSales.map(i => `
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${i.name}</td>
-                                    <td class="px-4 py-3 text-center font-medium dark:text-slate-300">${i.qty}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-green-600 dark:text-green-400">€ ${i.val.toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
-            `);
-            lucide.createIcons();
-        };
-
-        // --- STOCK VIEW ---
-        function renderStock(container) {
+        window.renderStock = function(container) {
             let filteredItems = state.items;
 
             if (stockFilterSupplier !== '') {
@@ -883,67 +754,9 @@
                     </div>
                 </div>
             `;
-        }
-
-        window.toggleStockSort = (col) => {
-            if (stockSortCol === col) stockSortAsc = !stockSortAsc;
-            else { stockSortCol = col; stockSortAsc = true; }
-            render();
         };
 
-        window.updateStockFilter = () => {
-            stockFilterSupplier = document.getElementById('filter-stock-supplier').value;
-            render();
-        };
-
-        window.showItemDocumentsModal = (itemId) => {
-            const item = state.items.find(i => i.id === itemId);
-            if (!item) return;
-
-            const itemMovements = state.movements.filter(m => m.itemId === itemId && m.type === 'IN');
-            const uniqueBolle = Array.from(new Set(itemMovements.map(m => state.bolle.find(b => b.movementsIds.includes(m.id))).filter(Boolean)));
-
-            openModal(`
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Carichi: ${item.name}</h3>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Storico documenti di carico per questo articolo</p>
-                    </div>
-                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
-                </div>
-                <div class="max-h-[60vh] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner custom-scrollbar">
-                    <table class="w-full text-xs text-left">
-                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                            <tr><th class="px-4 py-2">Data</th><th class="px-4 py-2">Documento</th><th class="px-4 py-2">Fornitore</th><th class="px-4 py-2 text-center">Q.tà Acquistata</th><th class="px-4 py-2 text-right">Azioni</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
-                            ${uniqueBolle.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400 italic">Nessun documento di carico trovato.</td></tr>' : uniqueBolle.slice().reverse().map(bolla => {
-                                const supplier = state.suppliers.find(s => s.id === bolla.supplierId);
-                                const typeName = getDocTypeName(bolla.docTypeId);
-                                const bollaItemMovements = bolla.movementsIds.map(mid => state.movements.find(m => m.id === mid)).filter(m => m && m.itemId === itemId);
-                                const qtyInBolla = bollaItemMovements.reduce((acc, m) => acc + m.quantity, 0);
-                                
-                                return `
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td class="px-4 py-3 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${bolla.date}</td>
-                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${typeName} ${bolla.docRef}</td>
-                                    <td class="px-4 py-3 text-slate-600 dark:text-slate-400">${supplier ? supplier.name : 'N.D.'}</td>
-                                    <td class="px-4 py-3 text-center font-bold text-green-600 dark:text-green-400">${qtyInBolla} pz</td>
-                                    <td class="px-4 py-3 text-right">
-                                        <button onclick="viewBollaDetail('${bolla.id}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors border border-transparent dark:border-blue-700">Vedi Bolla</button>
-                                    </td>
-                                </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
-            `);
-        };
-
-        // --- DOCUMENTS VIEW ---
-        function renderDocuments(container) {
+        window.renderDocuments = function(container) {
             const filteredBolle = state.bolle.filter(bolla => {
                 const typeName = getDocTypeName(bolla.docTypeId);
                 const docFullName = `${typeName} ${bolla.docRef}`.toLowerCase();
@@ -1029,14 +842,9 @@
                         </table>
                     </div>
                 </div>`;
-        }
+        };
 
-        window.toggleDocumentDetails = (id) => { expandedDocumentId = expandedDocumentId === id ? null : id; render(); };
-        window.updateDocFilters = () => { docFilterSearch = document.getElementById('filter-doc-search').value.toLowerCase(); docFilterDate = document.getElementById('filter-doc-date').value.toLowerCase(); docFilterSupplier = document.getElementById('filter-doc-supplier').value; render(); };
-        window.clearDocFilters = () => { docFilterSearch = ''; docFilterDate = ''; docFilterSupplier = ''; render(); };
-
-        // --- MOVEMENTS VIEW ---
-        function renderMovements(container) {
+        window.renderMovements = function(container) {
             container.innerHTML = `
                 <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                     <h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Movimentazioni</h2>
@@ -1067,10 +875,9 @@
                     </div>
                 </div>
             `;
-        }
+        };
 
-        // --- REGISTRY VIEW ---
-        function renderRegistry(container) {
+        window.renderRegistry = function(container) {
             let targetSeasonId = state.registrySeasonFilter === 'current' ? state.currentSeasonId : state.registrySeasonFilter;
             const filteredItems = targetSeasonId === 'all' ? state.items : state.items.filter(i => i.seasonId === targetSeasonId);
 
@@ -1213,9 +1020,246 @@
                         </div>
                     </div>
                 </div>`;
-        }
+        };
 
-        // --- GESTIONE MODALI E AZIONI ---
+        // --- 5. MODALS & OPERATIONS ---
+        window.toggleDocumentDetails = (id) => { expandedDocumentId = expandedDocumentId === id ? null : id; render(); };
+        window.updateDocFilters = () => { docFilterSearch = document.getElementById('filter-doc-search').value.toLowerCase(); docFilterDate = document.getElementById('filter-doc-date').value.toLowerCase(); docFilterSupplier = document.getElementById('filter-doc-supplier').value; render(); };
+        window.clearDocFilters = () => { docFilterSearch = ''; docFilterDate = ''; docFilterSupplier = ''; render(); };
+
+        window.openMultiLoadModal = function() {
+            if (state.items.length === 0 || state.suppliers.length === 0) { showNotification("Crea Articoli e Fornitori!"); return; }
+            if (editingBollaId === null && pendingBollaItems.length === 0) {
+                currentBollaSupplierId = state.suppliers[0].id; currentBollaDocRef = ""; currentBollaDocTypeId = state.documentTypes.length > 0 ? state.documentTypes[0].id : "";
+            }
+            const refreshBollaModal = () => {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="flex justify-between items-center mb-6 text-left">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="truck" class="text-green-600"></i> ${editingBollaId ? 'Modifica Documento di Carico' : 'Registra documento di carico'}</h3>
+                        <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 mb-6 shadow-inner text-left">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Fornitore</label>
+                            <select id="multi-supplier" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="syncBollaHeader()">
+                                ${state.suppliers.map(s=>`<option value="${s.id}" ${s.id === currentBollaSupplierId ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Tipo Doc.</label>
+                            <select id="multi-doc-type" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="syncBollaHeader()">
+                                ${state.documentTypes.map(dt=>`<option value="${dt.id}" ${dt.id === currentBollaDocTypeId ? 'selected' : ''}>${dt.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Riferimento</label>
+                            <input type="text" id="multi-doc-ref" value="${currentBollaDocRef}" placeholder="Es. 22/DDT" class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" oninput="syncBollaHeader()">
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-4 mb-4 text-left text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase">Articolo</label><select id="entry-item" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white" onchange="autoFillPrice()">${state.items.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select></div>
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase">Quantità</label><input type="number" id="entry-qty" value="1" min="1" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"></div>
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase text-blue-600 dark:text-blue-400">Costo (€)</label><input type="number" id="entry-price" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold"></div>
+                        </div>
+                        <button onclick="addPendingItemToBolla(); refreshBollaModal()" class="w-full mt-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-blue-700">Aggiungi riga</button>
+                    </div>
+                    <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 uppercase">
+                                <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Totale</th><th class="px-4 py-2"></th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                ${pendingBollaItems.length === 0 ? `<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400 italic">Lista di carico vuota</td></tr>` : pendingBollaItems.map((p, idx) => `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-300 text-xs">${state.items.find(i=>i.id===p.itemId)?.name}</td>
+                                    <td class="px-4 py-2 text-center dark:text-slate-200">${p.quantity}</td>
+                                    <td class="px-4 py-2 text-right font-bold text-blue-600 dark:text-blue-400">€ ${(p.quantity*p.price).toFixed(2)}</td>
+                                    <td class="px-4 py-2 text-right"><button onclick="pendingBollaItems.splice(${idx}, 1); refreshBollaModal()" class="text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex gap-3 text-left">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="finalizeBolla()" class="flex-1 bg-green-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-green-100 dark:shadow-none hover:bg-green-700 ${pendingBollaItems.length===0?'opacity-50 pointer-events-none':''}">Conferma e Salva</button>
+                    </div>`;
+                lucide.createIcons(); autoFillPrice();
+            };
+            window.syncBollaHeader = () => { 
+                currentBollaSupplierId = document.getElementById('multi-supplier').value; 
+                currentBollaDocRef = document.getElementById('multi-doc-ref').value; 
+                currentBollaDocTypeId = document.getElementById('multi-doc-type').value;
+            };
+            window.refreshBollaModal = refreshBollaModal; openModal(''); refreshBollaModal();
+        };
+
+        window.openMultiDischargeModal = function() {
+            if (state.items.length === 0 || state.outlets.length === 0) { showNotification("Configura articoli e reparti!"); return; }
+            if (pendingDischargeItems.length === 0) { currentDischargeOutletId = state.outlets[0].id; }
+            const refreshDischargeModal = () => {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="log-out" class="text-orange-600"></i> Scarico Reparto Hotel</h3>
+                        <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 mb-6 shadow-inner text-left text-xs">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase mb-1">Destinazione / Reparto</label>
+                        <select id="multi-outlet" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" onchange="syncDischargeHeader()">
+                            ${state.outlets.map(o=>`<option value="${o.id}" ${o.id === currentDischargeOutletId ? 'selected' : ''}>${o.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-4 mb-4 text-left text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase">Articolo</label><select id="out-entry-item" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white" onchange="autoFillOutPrice()">${state.items.map(i=>`<option value="${i.id}">${i.name} [Disp: ${i.currentStock}]</option>`).join('')}</select></div>
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase">Quantità</label><input type="number" id="out-entry-qty" value="1" min="1" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"></div>
+                            <div><label class="text-[9px] font-bold text-slate-400 uppercase text-blue-600 dark:text-blue-400">P. Vendita (€)</label><input type="number" id="out-entry-price" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold"></div>
+                        </div>
+                        <button onclick="addPendingItemToDischarge(); refreshDischargeModal()" class="w-full mt-3 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 py-2.5 rounded-xl text-xs font-bold hover:bg-orange-600 hover:text-white transition-all shadow-sm border border-transparent dark:border-orange-700">Aggiungi allo Scarico</button>
+                    </div>
+                    <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
+                        <table class="w-full text-left text-xs"><thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 uppercase"><tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Valore</th><th class="px-4 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            ${pendingDischargeItems.length === 0 ? `<tr><td colspan="4" class="px-4 py-8 text-center text-slate-300 italic text-[11px]">Lista vuota</td></tr>` : pendingDischargeItems.map((p, idx) => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-300">${state.items.find(i=>i.id===p.itemId)?.name}</td>
+                                <td class="px-4 py-2 text-center dark:text-slate-200">${p.quantity}</td>
+                                <td class="px-4 py-2 text-right font-bold text-blue-600 dark:text-blue-400">€ ${(p.quantity*p.price).toFixed(2)}</td>
+                                <td class="px-4 py-2 text-right"><button onclick="pendingDischargeItems.splice(${idx}, 1); refreshDischargeModal()" class="text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
+                            </tr>`).join('')}
+                        </tbody></table>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="finalizeMultiDischarge()" class="flex-1 bg-orange-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-orange-100 dark:shadow-none hover:bg-orange-700 ${pendingDischargeItems.length===0?'opacity-50 pointer-events-none':''}">Conferma Scarico</button>
+                    </div>`;
+                lucide.createIcons(); autoFillOutPrice();
+            };
+            window.syncDischargeHeader = () => { currentDischargeOutletId = document.getElementById('multi-outlet').value; };
+            window.refreshDischargeModal = refreshDischargeModal; openModal(''); refreshDischargeModal();
+        };
+
+        window.openInventoryModal = () => {
+            if (state.items.length === 0) { showNotification("Nessun articolo configurato!"); return; }
+            
+            const refreshInventoryModal = () => {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="clipboard-check" class="text-purple-600"></i> Rettifica Inventario</h3>
+                            <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Allinea la giacenza di sistema con il magazzino reale</p>
+                        </div>
+                        <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-4 mb-4 text-left text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                            <div class="md:col-span-2">
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">Articolo</label>
+                                <select id="inv-entry-item" class="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-200" onchange="autoFillSystemStock()">
+                                    ${state.items.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-400 uppercase">A Sistema</label>
+                                <input type="number" id="inv-system-qty" readonly disabled class="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs bg-slate-100 dark:bg-slate-900 font-bold text-slate-500 dark:text-slate-400 text-center">
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase">Contati (Reali)</label>
+                                <input type="number" id="inv-actual-qty" min="0" class="w-full px-3 py-2.5 rounded-lg border border-purple-300 dark:border-purple-600 text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none text-center bg-white dark:bg-slate-800 shadow-inner">
+                            </div>
+                        </div>
+                        <button onclick="addPendingItemToInventory(); refreshInventoryModal()" class="w-full mt-4 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 py-2.5 rounded-xl text-xs font-extrabold hover:bg-purple-600 hover:text-white transition-all shadow-sm border border-purple-200 dark:border-purple-700 uppercase tracking-widest">Aggiungi alla Rettifica</button>
+                    </div>
+                    
+                    <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 uppercase">
+                                <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Sistema</th><th class="px-4 py-2 text-center text-purple-600 dark:text-purple-400">Reale</th><th class="px-4 py-2 text-right">Scostamento</th><th class="px-4 py-2"></th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                                ${pendingInventoryItems.length === 0 ? `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-300 italic text-[11px]">Nessuna rettifica in sospeso</td></tr>` : pendingInventoryItems.map((p, idx) => {
+                                    const diff = p.actualQty - p.systemQty;
+                                    const diffClass = diff > 0 ? 'text-green-600 dark:text-green-400' : (diff < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400');
+                                    const diffSign = diff > 0 ? '+' : '';
+                                    return `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">${state.items.find(i=>i.id===p.itemId)?.name}</td>
+                                        <td class="px-4 py-3 text-center text-slate-500 dark:text-slate-400">${p.systemQty}</td>
+                                        <td class="px-4 py-3 text-center font-extrabold text-purple-600 dark:text-purple-400">${p.actualQty}</td>
+                                        <td class="px-4 py-3 text-right font-bold ${diffClass}">${diffSign}${diff}</td>
+                                        <td class="px-4 py-3 text-right"><button onclick="pendingInventoryItems.splice(${idx}, 1); refreshInventoryModal()" class="text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
+                        <button onclick="finalizeInventory()" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-purple-200 dark:shadow-none hover:bg-purple-700 ${pendingInventoryItems.length===0?'opacity-50 pointer-events-none':''}">Salva Rettifiche</button>
+                    </div>`;
+                lucide.createIcons(); autoFillSystemStock();
+            };
+            window.refreshInventoryModal = refreshInventoryModal; openModal(''); refreshInventoryModal();
+        };
+
+        window.autoFillSystemStock = () => { 
+            const id = document.getElementById('inv-entry-item')?.value; 
+            const item = state.items.find(i=>i.id===id); 
+            if(item && document.getElementById('inv-system-qty')) {
+                document.getElementById('inv-system-qty').value = item.currentStock; 
+                document.getElementById('inv-actual-qty').value = item.currentStock; 
+            }
+        };
+
+        window.addPendingItemToInventory = () => { 
+            const itemId = document.getElementById('inv-entry-item').value; 
+            const systemQty = parseInt(document.getElementById('inv-system-qty').value); 
+            const actualQty = parseInt(document.getElementById('inv-actual-qty').value); 
+            if (pendingInventoryItems.some(p => p.itemId === itemId)) { showNotification("Articolo già aggiunto. Rimuovilo per modificarlo."); return; }
+            if(isNaN(actualQty) || actualQty < 0) { showNotification("Quantità non valida"); return; }
+            if(systemQty === actualQty) { showNotification("Nessuno scostamento: giacenza già corretta"); return; }
+            pendingInventoryItems.push({ itemId, systemQty, actualQty }); 
+        };
+
+        window.finalizeInventory = () => {
+            const dateStr = new Date().toLocaleDateString('it-IT'); let successCount = 0;
+            pendingInventoryItems.forEach(p => { 
+                const item = state.items.find(i => i.id === p.itemId); 
+                if (item) { 
+                    const diff = p.actualQty - p.systemQty;
+                    item.currentStock = p.actualQty; 
+                    const moveType = diff > 0 ? 'IN' : 'OUT';
+                    state.movements.push({ id: 'mv-inv-' + Date.now() + Math.random(), itemId: p.itemId, type: moveType, quantity: Math.abs(diff), price: item.lastPrice, documentRef: 'Rettifica Inventario', date: dateStr }); 
+                    successCount++; 
+                } 
+            });
+            if(successCount > 0) { saveData(true, `Inventario Fisico (${successCount} art.)`); closeModal(); render(); showNotification(`Rettifica applicata con successo`); } 
+            pendingInventoryItems = [];
+        };
+
+        window.autoFillPrice = () => { const id = document.getElementById('entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('entry-price')) document.getElementById('entry-price').value = item.lastPrice; };
+        window.autoFillOutPrice = () => { const id = document.getElementById('out-entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('out-entry-price')) document.getElementById('out-entry-price').value = item.sellingPrice; };
+        window.addPendingItemToBolla = () => { window.syncBollaHeader(); const itemId = document.getElementById('entry-item').value; const quantity = parseInt(document.getElementById('entry-qty').value); const price = parseFloat(document.getElementById('entry-price').value); if(!quantity || quantity <= 0) return; pendingBollaItems.push({ itemId, quantity, price }); };
+        window.addPendingItemToDischarge = () => { window.syncDischargeHeader(); const itemId = document.getElementById('out-entry-item').value; const quantity = parseInt(document.getElementById('out-entry-qty').value); const price = parseFloat(document.getElementById('out-entry-price').value); if(!quantity || quantity <= 0) return; const item = state.items.find(i => i.id === itemId); if(item.currentStock < quantity) { showNotification(`Stock insufficiente per ${item.name}!`); return; } pendingDischargeItems.push({ itemId, quantity, price }); };
+        
+        window.finalizeBolla = () => {
+            window.syncBollaHeader(); const dateStr = new Date().toLocaleDateString('it-IT');
+            if (editingBollaId) {
+                const b = state.bolle.find(x => x.id === editingBollaId);
+                b.movementsIds.forEach(mid => { const mv = state.movements.find(m => m.id === mid); if (mv) { const item = state.items.find(i => i.id === mv.itemId); if (item) item.currentStock -= mv.quantity; } });
+                state.movements = state.movements.filter(m => !b.movementsIds.includes(m.id)); state.bolle = state.bolle.filter(x => x.id !== editingBollaId);
+            }
+            const bollaId = editingBollaId || 'bolla-' + Date.now(); const mIds = [];
+            pendingBollaItems.forEach(p => { const item = state.items.find(i => i.id === p.itemId); if (item) { item.currentStock += p.quantity; item.lastPrice = p.price; const mId = 'mv-' + Date.now() + Math.random(); mIds.push(mId); state.movements.push({ id: mId, itemId: p.itemId, type: 'IN', quantity: p.quantity, price: p.price, supplierId: currentBollaSupplierId, documentRef: currentBollaDocRef || 'Doc s/n', date: dateStr, bollaId: bollaId }); } });
+            state.bolle.push({ id: bollaId, docRef: currentBollaDocRef || 'Doc s/n', supplierId: currentBollaSupplierId, docTypeId: currentBollaDocTypeId, date: dateStr, movementsIds: mIds });
+            saveData(true, editingBollaId ? "Modifica Documento" : "Nuovo Documento"); closeModal(); render(); showNotification("Operazione completata"); editingBollaId = null; pendingBollaItems = [];
+        };
+
+        window.finalizeMultiDischarge = () => {
+            window.syncDischargeHeader(); const dateStr = new Date().toLocaleDateString('it-IT'); let successCount = 0;
+            pendingDischargeItems.forEach(p => { const item = state.items.find(i => i.id === p.itemId); if (item && item.currentStock >= p.quantity) { item.currentStock -= p.quantity; state.movements.push({ id: 'mv-' + Date.now() + Math.random(), itemId: p.itemId, type: 'OUT', quantity: p.quantity, price: p.price, outletId: currentDischargeOutletId, date: dateStr }); successCount++; } });
+            if(successCount > 0) { saveData(true, `Scarico Reparto (${successCount} art.)`); closeModal(); render(); showNotification(`Completato`); } pendingDischargeItems = [];
+        };
+
         window.openMasterModal = function(type) {
             const labels = { suppliers: 'Fornitore', outlets: 'Destinazione', categories: 'Categoria', seasons: 'Stagione', documentTypes: 'Tipo Documento' };
             openModal(`
@@ -1253,7 +1297,7 @@
                 else if (type==='outlets') { entry.budget = parseFloat(d.get('budget')) || 0; }
                 state[type].push(entry); saveData(true, "Aggiunta voce"); closeModal(); render(); 
             };
-        }
+        };
         
         window.openEditMasterModal = function(type, id) {
             const item = state[type].find(x => x.id === id);
@@ -1292,7 +1336,7 @@
                 else if (type==='outlets') { item.budget = parseFloat(d.get('budget')) || 0; }
                 saveData(true, "Modifica voce"); closeModal(); render(); 
             };
-        }
+        };
 
         window.openItemModal = function() {
             if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
@@ -1330,7 +1374,7 @@
                 if (initQty > 0) state.movements.push({ id: 'mv-init-'+Date.now(), itemId: newItem.id, type: 'IN', quantity: initQty, price: newItem.lastPrice, date: new Date().toLocaleDateString('it-IT'), documentRef: 'Giacenza Iniziale' });
                 state.items.push(newItem); saveData(true, "Nuovo Articolo"); closeModal(); render();
             };
-        }
+        };
 
         window.openMultiItemModal = function() {
             if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
@@ -1389,7 +1433,7 @@
                                 <input type="number" id="mi-stock" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value="0">
                             </div>
                             <div class="md:col-span-2">
-                                <button onclick="addPendingNewItem();" class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-indigo-700">Aggiungi alla lista sotto</button>
+                                <button onclick="addPendingNewItem();" class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-indigo-700">Aggiungi alla lista</button>
                             </div>
                         </div>
                     </div>
@@ -1438,15 +1482,11 @@
             const seasonId = document.getElementById('mi-season').value;
 
             pendingNewItems.push({ name, seasonId, categoryId, uomId, price, sellingPrice, reorderLevel, initialStock });
-            
             window.refreshMultiItemModal();
 
             setTimeout(() => {
                 const newNameInput = document.getElementById('mi-name');
-                if(newNameInput) {
-                    newNameInput.value = '';
-                    newNameInput.focus();
-                }
+                if(newNameInput) { newNameInput.value = ''; newNameInput.focus(); }
                 document.getElementById('mi-price').value = '0';
                 document.getElementById('mi-sell').value = '0';
                 document.getElementById('mi-stock').value = '0';
@@ -1457,45 +1497,28 @@
             if(pendingNewItems.length === 0) return;
             const dateStr = new Date().toLocaleDateString('it-IT');
             let addedCount = 0;
-            
             pendingNewItems.forEach(p => {
                 const newItem = { 
                     id: 'i' + Date.now() + Math.floor(Math.random() * 1000), 
-                    name: p.name, 
-                    seasonId: p.seasonId, 
-                    categoryId: p.categoryId, 
-                    uomId: p.uomId, 
-                    lastPrice: p.price, 
-                    sellingPrice: p.sellingPrice, 
-                    reorderLevel: p.reorderLevel, 
-                    currentStock: p.initialStock 
+                    name: p.name, seasonId: p.seasonId, categoryId: p.categoryId, uomId: p.uomId, 
+                    lastPrice: p.price, sellingPrice: p.sellingPrice, reorderLevel: p.reorderLevel, currentStock: p.initialStock 
                 };
                 if (p.initialStock > 0) {
                     state.movements.push({ 
                         id: 'mv-init-' + Date.now() + Math.floor(Math.random() * 1000), 
-                        itemId: newItem.id, 
-                        type: 'IN', 
-                        quantity: p.initialStock, 
-                        price: newItem.lastPrice, 
-                        date: dateStr, 
-                        documentRef: 'Giacenza Iniziale (Multipla)' 
+                        itemId: newItem.id, type: 'IN', quantity: p.initialStock, price: newItem.lastPrice, date: dateStr, documentRef: 'Giacenza Iniziale (Multipla)' 
                     });
                 }
                 state.items.push(newItem);
                 addedCount++;
             });
-            
-            saveData(true, `Inserimento Multiplo (${addedCount} art.)`); 
-            closeModal(); 
-            render(); 
-            showNotification(`${addedCount} articoli inseriti con successo`);
+            saveData(true, `Inserimento Multiplo (${addedCount} art.)`); closeModal(); render(); showNotification(`${addedCount} articoli inseriti con successo`);
             pendingNewItems = [];
         };
         
         window.openEditItemModal = function(id) {
             const item = state.items.find(i => i.id === id);
             if (!item) return;
-            
             openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Modifica Articolo</h3>
@@ -1523,23 +1546,13 @@
                         <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all">Salva Modifiche</button>
                     </div>
                 </form>`);
-            
             document.getElementById('edit-item-form').onsubmit = (e) => {
-                e.preventDefault(); 
-                const d = new FormData(e.target); 
-                item.name = d.get('name');
-                item.seasonId = d.get('seasonId');
-                item.categoryId = d.get('categoryId');
-                item.uomId = d.get('uomId');
-                item.lastPrice = parseFloat(d.get('price'));
-                item.sellingPrice = parseFloat(d.get('sellingPrice'));
-                item.reorderLevel = parseInt(d.get('reorderLevel'));
-                
-                saveData(true, "Modifica Articolo"); 
-                closeModal(); 
-                render();
+                e.preventDefault(); const d = new FormData(e.target); 
+                item.name = d.get('name'); item.seasonId = d.get('seasonId'); item.categoryId = d.get('categoryId'); item.uomId = d.get('uomId');
+                item.lastPrice = parseFloat(d.get('price')); item.sellingPrice = parseFloat(d.get('sellingPrice')); item.reorderLevel = parseInt(d.get('reorderLevel'));
+                saveData(true, "Modifica Articolo"); closeModal(); render();
             };
-        }
+        };
 
         window.requestDeleteItem = function(id, name) { 
             openModal(`
@@ -1550,7 +1563,7 @@
                         <button onclick="state.items=state.items.filter(i=>i.id!=='${id}');saveData(true,'Elimina item');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
                     </div>
                 </div>`); 
-        }
+        };
 
         window.requestDeleteMaster = function(type, id, name) {
             const isUsed = (type==='categories' && state.items.some(i=>i.categoryId===id)) || 
@@ -1567,7 +1580,7 @@
                         <button onclick="state['${type}']=state['${type}'].filter(x=>x.id!=='${id}');saveData(true,'Elimina master');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-md md:font-extrabold">Sì, elimina</button>
                     </div>
                 </div>`);
-        }
+        };
 
         // --- GESTIONE UTENTI ---
         window.openUserModal = function(id = null) {
@@ -1632,7 +1645,6 @@
         // --- EXPORT E ORDINI ---
         window.exportDataToCSV = () => {
             if (state.items.length === 0) { showNotification("Nessun dato da esportare!"); return; }
-            
             const headers = ["ID", "Nome Articolo", "Stagione", "Categoria", "U.M.", "Prezzo Acquisto", "Prezzo Vendita", "Giacenza Attuale", "Soglia Riordino", "Ultimo Fornitore"];
             const rows = state.items.map(item => {
                 const inMovements = state.movements.filter(m => m.itemId === item.id && m.type === 'IN' && m.supplierId);
@@ -1642,33 +1654,19 @@
                     const supplier = state.suppliers.find(s => s.id === lastSupplierId);
                     if (supplier) lastSupplierName = supplier.name;
                 }
-
                 return [
-                    item.id,
-                    `"${item.name.replace(/"/g, '""')}"`, 
-                    `"${getSeasonName(item.seasonId)}"`,
-                    `"${getCategoryName(item.categoryId)}"`,
-                    `"${getUomName(item.uomId)}"`,
-                    item.lastPrice || 0,
-                    item.sellingPrice || 0,
-                    item.currentStock || 0,
-                    item.reorderLevel || 0,
+                    item.id, `"${item.name.replace(/"/g, '""')}"`, `"${getSeasonName(item.seasonId)}"`,
+                    `"${getCategoryName(item.categoryId)}"`, `"${getUomName(item.uomId)}"`,
+                    item.lastPrice || 0, item.sellingPrice || 0, item.currentStock || 0, item.reorderLevel || 0,
                     `"${lastSupplierName.replace(/"/g, '""')}"`
                 ].join(";"); 
             });
-
             const csvContent = headers.join(";") + "\n" + rows.join("\n");
             const bom = "\uFEFF"; 
             const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-            
             const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", `HotelStock_Anagrafica_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
+            const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `HotelStock_Anagrafica_${new Date().toLocaleDateString('it-IT').replace(/\//g, '-')}.csv`);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
             showNotification("Esportazione CSV completata");
         };
 
@@ -1676,37 +1674,20 @@
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
             const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
 
-            if (lowStockItems.length === 0) {
-                showNotification("Nessun articolo sottoscorta.");
-                return;
-            }
+            if (lowStockItems.length === 0) { showNotification("Nessun articolo sottoscorta."); return; }
 
             const ordersBySupplier = {};
-
             lowStockItems.forEach(item => {
                 const inMovements = state.movements.filter(m => m.itemId === item.id && m.type === 'IN' && m.supplierId);
-                let lastSupplierId = "unknown";
-                let lastSupplierName = "Fornitore Non Assegnato / Manuale";
-
+                let lastSupplierId = "unknown"; let lastSupplierName = "Fornitore Non Assegnato / Manuale";
                 if (inMovements.length > 0) {
                     lastSupplierId = inMovements[inMovements.length - 1].supplierId;
                     const supplier = state.suppliers.find(s => s.id === lastSupplierId);
                     if (supplier) lastSupplierName = supplier.name;
                 }
-
-                if (!ordersBySupplier[lastSupplierId]) {
-                    ordersBySupplier[lastSupplierId] = {
-                        supplierName: lastSupplierName,
-                        items: []
-                    };
-                }
-
+                if (!ordersBySupplier[lastSupplierId]) { ordersBySupplier[lastSupplierId] = { supplierName: lastSupplierName, items: [] }; }
                 const suggestedQty = Math.max((item.reorderLevel * 2) - item.currentStock, 1);
-
-                ordersBySupplier[lastSupplierId].items.push({
-                    ...item,
-                    suggestedQty: suggestedQty
-                });
+                ordersBySupplier[lastSupplierId].items.push({ ...item, suggestedQty: suggestedQty });
             });
 
             let htmlContent = `
@@ -1723,7 +1704,6 @@
             Object.entries(ordersBySupplier).forEach(([supplierId, order]) => {
                 const safeNameForAttr = order.supplierName.replace(/"/g, '&quot;');
                 const safeNameForJS = order.supplierName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                
                 htmlContent += `
                     <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                         <div class="bg-blue-50/50 dark:bg-blue-900/20 px-4 py-3 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
@@ -1759,7 +1739,6 @@
                     <button onclick="closeModal()" class="px-6 py-2.5 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors shadow-lg">Chiudi Pannello</button>
                 </div>
             `;
-
             openModal(htmlContent);
         };
 
@@ -1770,55 +1749,31 @@
             
             let hasItems = false;
             inputs.forEach(input => {
-                const itemName = input.getAttribute('data-item');
-                const qty = input.value;
-                if(parseInt(qty) > 0) {
-                    text += `- ${qty}x ${itemName}\n`;
-                    hasItems = true;
-                }
+                const itemName = input.getAttribute('data-item'); const qty = input.value;
+                if(parseInt(qty) > 0) { text += `- ${qty}x ${itemName}\n`; hasItems = true; }
             });
 
-            if(!hasItems) {
-                showNotification("Nessuna quantità inserita!");
-                return;
-            }
+            if(!hasItems) { showNotification("Nessuna quantità inserita!"); return; }
 
             const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showNotification("Copiato! Pronto per Email/WhatsApp");
-            } catch (err) {
-                showNotification("Errore durante la copia.");
-            }
+            textArea.value = text; document.body.appendChild(textArea); textArea.select();
+            try { document.execCommand('copy'); showNotification("Copiato! Pronto per Email/WhatsApp"); } catch (err) { showNotification("Errore durante la copia."); }
             document.body.removeChild(textArea);
         };
 
         window.sendOrderEmail = (supplierId, supplierName) => {
             const supplier = state.suppliers.find(s => s.id === supplierId);
             const supplierEmail = supplier && supplier.email ? supplier.email : "[Email non specificata]";
-            
             const safeSupplierName = supplierName.replace(/"/g, '\\"');
             const inputs = document.querySelectorAll(`.order-qty-input[data-supplier="${safeSupplierName}"]`);
             
-            let hasItems = false;
-            let orderItemsText = "";
-            
+            let hasItems = false; let orderItemsText = "";
             inputs.forEach(input => {
-                const itemName = input.getAttribute('data-item');
-                const qty = input.value;
-                if(parseInt(qty) > 0) {
-                    orderItemsText += `- ${qty} pz x ${itemName}\n`;
-                    hasItems = true;
-                }
+                const itemName = input.getAttribute('data-item'); const qty = input.value;
+                if(parseInt(qty) > 0) { orderItemsText += `- ${qty} pz x ${itemName}\n`; hasItems = true; }
             });
 
-            if(!hasItems) {
-                showNotification("Nessuna quantità inserita!");
-                return;
-            }
+            if(!hasItems) { showNotification("Nessuna quantità inserita!"); return; }
 
             const subject = `Ordine Fornitura - ${new Date().toLocaleDateString('it-IT')}`;
             const bodyText = `A: ${supplierEmail}\nOggetto: ${subject}\n\nBuongiorno,\n\nCon la presente vi trasmettiamo il nostro ordine di fornitura:\n\n${orderItemsText}\nRestiamo in attesa di una vostra gentile conferma di ricezione e dei tempi di consegna.\n\nCordiali saluti,\nLa Direzione`;
@@ -1843,12 +1798,8 @@
         window.copyGeneratedEmail = () => {
             const textArea = document.getElementById("generated-email-text");
             textArea.select();
-            try {
-                document.execCommand('copy');
-                showNotification("Testo copiato negli appunti!");
-            } catch (err) {
-                showNotification("Errore durante la copia.");
-            }
+            try { document.execCommand('copy'); showNotification("Testo copiato negli appunti!"); } 
+            catch (err) { showNotification("Errore durante la copia."); }
         };
 
         // --- INTEGRAZIONE GOOGLE SHEETS CLOUD ---
