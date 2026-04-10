@@ -135,8 +135,8 @@
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[70] text-white flex-col gap-4 transition-opacity duration-300">
-        <i data-lucide="cloud-sync" class="w-12 h-12 animate-pulse text-blue-500"></i>
-        <p class="font-bold tracking-widest text-sm text-slate-300 uppercase">Sincronizzazione Cloud...</p>
+        <i data-lucide="loader" class="w-12 h-12 animate-spin text-blue-500"></i>
+        <p class="font-bold tracking-widest text-sm text-slate-300 uppercase">Caricamento dati...</p>
     </div>
 
     <script>
@@ -156,6 +156,7 @@
 
         let pendingDischargeItems = [];
         let currentDischargeOutletId = "";
+        
         let pendingInventoryItems = [];
         let pendingNewItems = [];
         
@@ -168,7 +169,7 @@
         let docFilterSupplier = '';
 
         // --- 2. UTILITY FUNCTIONS ---
-        window.showNotification = function(text) {
+        function showNotification(text) {
             const t = document.getElementById('notification');
             const textEl = document.getElementById('notification-text');
             if(t && textEl) {
@@ -176,44 +177,44 @@
                 t.style.transform = 'translateY(0)';
                 setTimeout(() => t.style.transform = 'translateY(5rem)', 3000);
             }
-        };
+        }
 
-        window.toggleDarkMode = function() {
+        function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-            window.updateDarkModeIcon();
-            if(state.activeTab === 'dashboard') window.renderCharts(); 
-        };
+            updateDarkModeIcon();
+            if(state.activeTab === 'dashboard') renderCharts(); 
+        }
 
-        window.updateDarkModeIcon = function() {
+        function updateDarkModeIcon() {
             const icon = document.getElementById('dark-mode-icon');
             if (icon) {
                 icon.setAttribute('data-lucide', document.documentElement.classList.contains('dark') ? 'sun' : 'moon');
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
-        };
+        }
 
-        window.getCategoryName = function(id) { return state.categories.find(c => c.id === id)?.name || '-'; };
-        window.getSeasonName = function(id) { return state.seasons.find(s => s.id === id)?.name || 'N.D.'; };
-        window.getUomName = function(id) { const u = state.uoms.find(u => u.id === id); return u ? u.name.split('(')[1]?.replace(')','') || u.name : 'PZ'; };
-        window.getDocTypeName = function(id) { return state.documentTypes.find(dt => dt.id === id)?.name || "Bolla"; };
+        function getCategoryName(id) { return state.categories.find(c => c.id === id)?.name || '-'; }
+        function getSeasonName(id) { return state.seasons.find(s => s.id === id)?.name || 'N.D.'; }
+        function getUomName(id) { const u = state.uoms.find(u => u.id === id); return u ? u.name.split('(')[1]?.replace(')','') || u.name : 'PZ'; }
+        function getDocTypeName(id) { return state.documentTypes.find(dt => dt.id === id)?.name || "Bolla"; }
 
-        window.openModal = function(html) { 
+        function openModal(html) { 
             const c = document.getElementById('modal-content'); 
             if (html !== '') c.innerHTML = html; 
             document.getElementById('modal-overlay').classList.replace('hidden', 'flex'); 
             if (typeof lucide !== 'undefined') lucide.createIcons(); 
-        };
+        }
         
-        window.closeModal = function() { 
+        function closeModal() { 
             document.getElementById('modal-overlay').classList.replace('flex', 'hidden'); 
             editingBollaId = null; pendingBollaItems = []; pendingDischargeItems = []; pendingInventoryItems = []; pendingNewItems = [];
-        };
+        }
 
-        window.handleOverlayClick = function(e) { if (e.target.id === 'modal-overlay') window.closeModal(); };
+        function handleOverlayClick(e) { if (e.target.id === 'modal-overlay') closeModal(); }
 
         // --- 3. INIT & CORE FLOW ---
-        window.initCloudData = function(cloudState) {
+        function initData() {
             try {
                 const defaultState = {
                     items: [], categories: [], uoms: [], suppliers: [], seasons: [], outlets: [], 
@@ -223,49 +224,44 @@
                     activeTab: 'dashboard', dashboardFilter: 'current', registrySeasonFilter: 'current'
                 };
 
-                if (cloudState) {
-                    state = { ...defaultState, ...cloudState };
-                } else {
-                    const savedState = localStorage.getItem(STORAGE_KEY);
-                    if (savedState) {
-                        try {
-                            const parsedState = JSON.parse(savedState);
-                            state = { ...defaultState, ...parsedState };
-                        } catch (e) { 
-                            console.error("Errore parsing dati", e); 
-                            state = { ...defaultState };
-                        }
-                    } else {
+                const savedState = localStorage.getItem(STORAGE_KEY);
+                if (savedState) {
+                    try {
+                        const parsedState = JSON.parse(savedState);
+                        state = { ...defaultState, ...parsedState };
+                    } catch (e) { 
+                        console.error("Errore parsing dati", e); 
                         state = { ...defaultState };
-                        state.categories = [{id: 'c1', name: 'Alimentari'}, {id: 'c2', name: 'Pulizia'}, {id: 'c3', name: 'Beverage'}];
-                        state.uoms = [{id: 'u1', name: 'Pezzi (PZ)'}, {id: 'u2', name: 'Kg'}, {id: 'u3', name: 'Litri (L)'}];
-                        state.seasons = [{id: 's1', name: 'Inverno 2024/25'}, {id: 's2', name: 'Estate 2025'}];
-                        state.outlets = [{id: 'o1', name: 'Bar Centrale', budget: 1000}, {id: 'o2', name: 'Ristorante', budget: 500}];
-                        state.suppliers = [{id: 'f1', name: 'Fornitore Test SRL', contactPerson: 'Mario', phone: '02-123456', email: 'test@email.it'}];
-                        state.currentSeasonId = 's1';
-                        window.saveData(false, "Inizializzazione");
                     }
+                } else {
+                    state = { ...defaultState };
+                    state.categories = [{id: 'c1', name: 'Alimentari'}, {id: 'c2', name: 'Pulizia'}, {id: 'c3', name: 'Beverage'}];
+                    state.uoms = [{id: 'u1', name: 'Pezzi (PZ)'}, {id: 'u2', name: 'Kg'}, {id: 'u3', name: 'Litri (L)'}];
+                    state.seasons = [{id: 's1', name: 'Inverno 2024/25'}, {id: 's2', name: 'Estate 2025'}];
+                    state.outlets = [{id: 'o1', name: 'Bar Centrale', budget: 1000}, {id: 'o2', name: 'Ristorante', budget: 500}];
+                    state.suppliers = [{id: 'f1', name: 'Fornitore Test SRL', contactPerson: 'Mario', phone: '02-123456', email: 'test@email.it'}];
+                    state.currentSeasonId = 's1';
+                    saveData(false, "Inizializzazione");
                 }
                 
-                // Sicurezza: Forza tutti gli array ad esistere anche se corrotti
+                // Sicurezza array
                 ['items', 'categories', 'uoms', 'suppliers', 'seasons', 'outlets', 'documentTypes', 'users', 'movements', 'bolle', 'versionHistory'].forEach(key => {
                     if (!Array.isArray(state[key])) state[key] = defaultState[key] || [];
                 });
 
-                window.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.closeModal(); });
-                window.updateVersionSelector();
-                window.updateSeasonIndicator();
-                window.updateDarkModeIcon();
-                window.render();
+                window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+                updateVersionSelector();
+                updateSeasonIndicator();
+                updateDarkModeIcon();
+                renderApp();
                 
-                if (!currentUser) window.renderLogin();
+                if (!currentUser) renderLogin();
                 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
 
             } catch(error) {
                 console.error("Errore critico durante l'inizializzazione:", error);
             } finally {
-                // Rimuove sempre la schermata di caricamento
                 const loader = document.getElementById('loading-overlay');
                 if(loader) {
                     loader.classList.add('opacity-0');
@@ -275,9 +271,9 @@
                     }, 300);
                 }
             }
-        };
+        }
 
-        window.renderLogin = function() {
+        function renderLogin() {
             const select = document.getElementById('login-user-select');
             if(select) {
                 select.innerHTML = state.users.map(u => `<option value="${u.id}" class="dark:bg-slate-800">${u.username}</option>`).join('');
@@ -288,9 +284,9 @@
             document.getElementById('user-profile').classList.add('hidden');
             document.getElementById('user-profile').classList.remove('flex');
             document.getElementById('app').classList.add('blur-sm', 'pointer-events-none');
-        };
+        }
 
-        window.handleLogin = function(e) {
+        function handleLogin(e) {
             if(e) e.preventDefault();
             const userId = document.getElementById('login-user-select').value;
             const pinInput = document.getElementById('login-pin');
@@ -304,25 +300,25 @@
                 document.getElementById('user-profile').classList.remove('hidden');
                 document.getElementById('user-profile').classList.add('flex');
                 document.getElementById('current-username').innerText = user.username;
-                window.showNotification(`Accesso effettuato come ${user.username}`);
+                showNotification(`Accesso effettuato come ${user.username}`);
                 pinInput.value = ''; 
             } else {
                 document.getElementById('login-error').classList.remove('hidden');
                 pinInput.value = ''; 
                 pinInput.focus();
             }
-        };
+        }
 
-        window.logout = function() {
+        function logout() {
             currentUser = null;
             state.activeTab = 'dashboard'; 
-            window.closeModal(); 
-            window.render();
-            window.renderLogin();
-            window.showNotification("Disconnesso con successo");
-        };
+            closeModal(); 
+            renderApp();
+            renderLogin();
+            showNotification("Disconnesso con successo");
+        }
 
-        window.saveData = function(createSnapshot = true, label = "Aggiornamento dati") {
+        function saveData(createSnapshot = true, label = "Aggiornamento dati") {
             if (createSnapshot) {
                 const snapshot = {
                     id: Date.now(),
@@ -347,15 +343,11 @@
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 }
             }
-            window.updateVersionSelector();
-            window.updateSeasonIndicator();
+            updateVersionSelector();
+            updateSeasonIndicator();
+        }
 
-            if (typeof window.onSaveToCloud === 'function') {
-                window.onSaveToCloud(state);
-            }
-        };
-
-        window.updateVersionSelector = function() {
+        function updateVersionSelector() {
             const selector = document.getElementById('version-selector');
             if (!selector) return;
             selector.innerHTML = '<option value="" class="dark:bg-slate-800">Cronologia Versioni...</option>';
@@ -366,9 +358,9 @@
                     selector.appendChild(option);
                 });
             }
-        };
+        }
 
-        window.updateSeasonIndicator = function() {
+        function updateSeasonIndicator() {
             const indicator = document.getElementById('active-season-indicator');
             if (!indicator) return;
             const season = (state.seasons || []).find(s => s.id === state.currentSeasonId);
@@ -376,19 +368,19 @@
                 ? `<i data-lucide="sun" class="w-3 h-3 text-orange-400"></i> Stagione: ${season.name}`
                 : `<i data-lucide="alert-circle" class="w-3 h-3 text-red-400"></i> No Stagione`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
-        };
+        }
         
-        window.setCurrentSeason = function(id) {
+        function setCurrentSeason(id) {
             state.currentSeasonId = id;
-            window.saveData(true, "Cambio stagione attiva");
-            window.render();
-            window.showNotification("Stagione impostata come attiva");
-        };
+            saveData(true, "Cambio stagione attiva");
+            renderApp();
+            showNotification("Stagione impostata come attiva");
+        }
 
-        window.restoreVersion = function(index) {
+        function restoreVersion(index) {
             if (index === "") return;
             const version = state.versionHistory[index];
-            window.openModal(`
+            openModal(`
                 <div class="text-center p-4">
                     <h3 class="text-xl font-bold mb-2 text-slate-800 dark:text-white">Ripristina Backup</h3>
                     <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm italic">Ripristinare lo stato del ${version.timestamp}?</p>
@@ -398,41 +390,41 @@
                     </div>
                 </div>
             `);
-        };
+        }
 
-        window.confirmRestore = function(index) {
+        function confirmRestore(index) {
             const versionData = state.versionHistory[index].data;
             const history = state.versionHistory; 
             state = { ...versionData, versionHistory: history, activeTab: state.activeTab };
-            window.saveData(false); window.closeModal(); window.render(); window.showNotification("Backup ripristinato");
+            saveData(false); closeModal(); renderApp(); showNotification("Backup ripristinato");
             document.getElementById('version-selector').value = "";
-        };
+        }
 
-        window.createManualVersion = function() { window.saveData(true, "Manuale"); window.showNotification("Versione salvata"); };
-        window.switchTab = function(tab) { state.activeTab = tab; window.render(); };
+        function createManualVersion() { saveData(true, "Manuale"); showNotification("Versione salvata"); }
+        function switchTab(tab) { state.activeTab = tab; renderApp(); }
 
-        window.updateNavStyles = function() {
+        function updateNavStyles() {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
                 if (btn.dataset.tab === state.activeTab) btn.classList.add('tab-active', 'bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
             });
-        };
+        }
 
-        window.render = function() {
+        function renderApp() {
             const container = document.getElementById('content-area');
-            window.updateNavStyles();
+            updateNavStyles();
             switch(state.activeTab) {
-                case 'dashboard': window.renderDashboard(container); break;
-                case 'movements': window.renderMovements(container); break;
-                case 'stock': window.renderStock(container); break;
-                case 'documents': window.renderDocuments(container); break;
-                case 'registry': window.renderRegistry(container); break;
+                case 'dashboard': renderDashboard(container); break;
+                case 'movements': renderMovements(container); break;
+                case 'stock': renderStock(container); break;
+                case 'documents': renderDocuments(container); break;
+                case 'registry': renderRegistry(container); break;
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
-        };
+        }
 
         // --- 4. RENDER FUNCTIONS (VIEWS) ---
-        window.renderDashboard = function(container) {
+        function renderDashboard(container) {
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
             const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
             const totalCostValue = filteredItems.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
@@ -448,7 +440,7 @@
             
             const catSummary = {};
             filteredItems.forEach(item => {
-                const catName = window.getCategoryName(item.categoryId);
+                const catName = getCategoryName(item.categoryId);
                 if(!catSummary[catName]) catSummary[catName] = { value: 0, qty: 0 };
                 catSummary[catName].value += (item.currentStock * item.lastPrice);
                 catSummary[catName].qty += item.currentStock;
@@ -495,8 +487,8 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="flex bg-slate-200/50 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <button onclick="state.dashboardFilter='current'; render()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'current' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Stagione Attiva</button>
-                            <button onclick="state.dashboardFilter='all'; render()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Globale</button>
+                            <button onclick="state.dashboardFilter='current'; renderApp()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'current' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Stagione Attiva</button>
+                            <button onclick="state.dashboardFilter='all'; renderApp()" class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${state.dashboardFilter === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}">Globale</button>
                         </div>
                     </div>
                 </div>
@@ -537,7 +529,7 @@
                                 ${lowStockItems.length === 0 ? `<tr><td colspan="4" class="px-6 py-12 text-center text-slate-400 dark:text-slate-500 italic">Nessun articolo sottoscorta.</td></tr>` : 
                                 lowStockItems.map(item => `
                                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                        <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">${item.name}<div class="text-[9px] uppercase text-slate-400 dark:text-slate-500 font-bold">${window.getSeasonName(item.seasonId)}</div></td>
+                                        <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">${item.name}<div class="text-[9px] uppercase text-slate-400 dark:text-slate-500 font-bold">${getSeasonName(item.seasonId)}</div></td>
                                         <td class="px-6 py-4 text-center font-bold text-red-600 dark:text-red-400">${item.currentStock}</td>
                                         <td class="px-6 py-4 text-center text-slate-400 dark:text-slate-500 font-medium">${item.reorderLevel}</td>
                                         <td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-red-600 text-white text-[9px] font-extrabold rounded uppercase version-badge tracking-tighter">Riordinare</span></td>
@@ -615,16 +607,16 @@
                     </div>
                 </div>
             `;
-            setTimeout(window.renderCharts, 0);
-        };
+            setTimeout(renderCharts, 0);
+        }
 
-        window.renderCharts = function() {
+        function renderCharts() {
             if(Object.keys(myCharts).length > 0) { Object.values(myCharts).forEach(c => c.destroy()); myCharts = {}; }
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
 
             const catValueData = {}, catQtyData = {}, supplierSpend = {}, salesByCategoryData = {};
             filteredItems.forEach(item => {
-                const catName = window.getCategoryName(item.categoryId);
+                const catName = getCategoryName(item.categoryId);
                 catValueData[catName] = (catValueData[catName] || 0) + (item.currentStock * item.lastPrice);
                 catQtyData[catName] = (catQtyData[catName] || 0) + item.currentStock;
             });
@@ -640,7 +632,7 @@
                 if (mv.type === 'OUT') {
                     const item = state.items.find(i => i.id === mv.itemId);
                     if (state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId)) {
-                        const catName = item ? window.getCategoryName(item.categoryId) : 'Eliminati/Sconosciuti';
+                        const catName = item ? getCategoryName(item.categoryId) : 'Eliminati/Sconosciuti';
                         salesByCategoryData[catName] = (salesByCategoryData[catName] || 0) + (mv.quantity * mv.price);
                     }
                 }
@@ -689,16 +681,16 @@
             }
 
             const ctx1 = document.getElementById('chartCategoryValue');
-            if(ctx1) myCharts.c1 = new Chart(ctx1, createChartConfig(catValueData, 'doughnut', window.showCategoryDetailsModal, true));
+            if(ctx1) myCharts.c1 = new Chart(ctx1, createChartConfig(catValueData, 'doughnut', showCategoryDetailsModal, true));
             const ctx2 = document.getElementById('chartCategoryQty');
-            if(ctx2) myCharts.c2 = new Chart(ctx2, createChartConfig(catQtyData, 'pie', window.showCategoryDetailsModal, false));
+            if(ctx2) myCharts.c2 = new Chart(ctx2, createChartConfig(catQtyData, 'pie', showCategoryDetailsModal, false));
             const ctx3 = document.getElementById('chartSupplierSpend');
-            if(ctx3) myCharts.c3 = new Chart(ctx3, createChartConfig(supplierSpend, 'doughnut', window.showSupplierDetailsModal, true));
+            if(ctx3) myCharts.c3 = new Chart(ctx3, createChartConfig(supplierSpend, 'doughnut', showSupplierDetailsModal, true));
             const ctx4 = document.getElementById('chartSalesCategory');
-            if(ctx4) myCharts.c4 = new Chart(ctx4, createChartConfig(salesByCategoryData, 'pie', window.showSalesDetailsModal, true));
-        };
+            if(ctx4) myCharts.c4 = new Chart(ctx4, createChartConfig(salesByCategoryData, 'pie', showSalesDetailsModal, true));
+        }
 
-        window.showCategoryDetailsModal = (categoryName) => {
+        function showCategoryDetailsModal(categoryName) {
             const category = state.categories.find(c => c.name === categoryName);
             if (!category) return;
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
@@ -706,7 +698,7 @@
             const totalVal = itemsInCat.reduce((acc, i) => acc + (i.currentStock * i.lastPrice), 0);
             const totalQty = itemsInCat.reduce((acc, i) => acc + i.currentStock, 0);
 
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Categoria: ${categoryName}</h3>
@@ -733,9 +725,9 @@
                 </div>
                 <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
             `);
-        };
+        }
 
-        window.showSupplierDetailsModal = (supplierName) => {
+        function showSupplierDetailsModal(supplierName) {
             const supplier = state.suppliers.find(s => s.name === supplierName);
             if (!supplier) return;
 
@@ -747,7 +739,7 @@
                 return totalAcc + bollaVal;
             }, 0);
             
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Fornitore: ${supplierName}</h3>
@@ -768,7 +760,7 @@
                                 return `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td class="px-4 py-3 text-[10px] text-slate-400 dark:text-slate-500 font-mono">${bolla.date}</td>
-                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${window.getDocTypeName(bolla.docTypeId)} ${bolla.docRef}</td>
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${getDocTypeName(bolla.docTypeId)} ${bolla.docRef}</td>
                                     <td class="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400">€ ${val.toFixed(2)}</td>
                                     <td class="px-4 py-3 text-right"><button onclick="viewBollaDetail('${bolla.id}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors border border-transparent dark:border-blue-700">Vedi</button></td>
                                 </tr>
@@ -779,9 +771,9 @@
                 </div>
                 <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
             `);
-        };
+        }
 
-        window.showTotalSalesDetailsModal = () => {
+        function showTotalSalesDetailsModal() {
             const allSales = {};
             let totalVal = 0, totalQty = 0;
             state.movements.forEach(mv => {
@@ -798,7 +790,7 @@
                 }
             });
             const sortedSales = Object.values(allSales).sort((a, b) => b.val - a.val);
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Dettaglio Totale Venduto</h3>
@@ -825,17 +817,64 @@
                 <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
             `);
             if (typeof lucide !== 'undefined') lucide.createIcons();
-        };
+        }
 
-        window.renderStock = function(container) {
+        function showSalesDetailsModal(categoryName) {
+            const allSales = {};
+            let totalVal = 0, totalQty = 0;
+            state.movements.forEach(mv => {
+                if (mv.type === 'OUT') {
+                    const item = state.items.find(i => i.id === mv.itemId);
+                    if (state.dashboardFilter === 'all' || (item && item.seasonId === state.currentSeasonId)) {
+                        const catName = item ? getCategoryName(item.categoryId) : 'Eliminati/Sconosciuti';
+                        if (catName === categoryName) {
+                            const itemName = item ? item.name : 'Articolo Eliminato';
+                            const itemId = item ? item.id : 'deleted';
+                            if (!allSales[itemId]) allSales[itemId] = { name: itemName, qty: 0, val: 0 };
+                            allSales[itemId].qty += mv.quantity;
+                            allSales[itemId].val += (mv.quantity * mv.price);
+                            totalQty += mv.quantity; totalVal += (mv.quantity * mv.price);
+                        }
+                    }
+                }
+            });
+            const sortedSales = Object.values(allSales).sort((a, b) => b.val - a.val);
+            openModal(`
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Vendite Categoria: ${categoryName}</h3>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1">Volume: ${totalQty} pz | Incasso: € ${totalVal.toFixed(2)}</p>
+                    </div>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner custom-scrollbar">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            <tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà Venduta</th><th class="px-4 py-2 text-right">Incasso Tot.</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                            ${sortedSales.length === 0 ? '<tr><td colspan="3" class="px-4 py-6 text-center text-slate-400 italic">Nessuna vendita registrata.</td></tr>' : sortedSales.map(i => `
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">${i.name}</td>
+                                    <td class="px-4 py-3 text-center font-medium dark:text-slate-300">${i.qty}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-green-600 dark:text-green-400">€ ${i.val.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
+            `);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function renderStock(container) {
             let filteredItems = state.items;
-
             if (stockFilterSupplier !== '') {
                 filteredItems = filteredItems.filter(item => {
                     return state.movements.some(m => m.itemId === item.id && m.type === 'IN' && m.supplierId === stockFilterSupplier);
                 });
             }
-
             let sortedItems = [...filteredItems].sort((a, b) => {
                 let valA = stockSortCol === 'name' ? a.name.toLowerCase() : (stockSortCol === 'stock' ? a.currentStock : a.lastPrice);
                 let valB = stockSortCol === 'name' ? b.name.toLowerCase() : (stockSortCol === 'stock' ? b.currentStock : b.lastPrice);
@@ -882,7 +921,7 @@
                                 ${sortedItems.map(item => `
                                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                                         <td class="px-4"><div class="w-2 h-2 rounded-full ${item.currentStock <= item.reorderLevel ? 'bg-red-500' : 'bg-green-500'}"></div></td>
-                                        <td class="px-6 py-3 font-bold text-slate-800 dark:text-slate-200">${item.name} <span class="ml-1 text-[8px] font-medium text-slate-400 dark:text-slate-500 px-1 py-0.5 rounded uppercase border dark:border-slate-600">${window.getSeasonName(item.seasonId)}</span></td>
+                                        <td class="px-6 py-3 font-bold text-slate-800 dark:text-slate-200">${item.name} <span class="ml-1 text-[8px] font-medium text-slate-400 dark:text-slate-500 px-1 py-0.5 rounded uppercase border dark:border-slate-600">${getSeasonName(item.seasonId)}</span></td>
                                         <td class="px-6 py-3 text-center font-bold dark:text-slate-200">${item.currentStock}</td>
                                         <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400 font-medium">€ ${item.lastPrice.toFixed(2)}</td>
                                         <td class="px-6 py-3 text-right">
@@ -897,27 +936,28 @@
                     </div>
                 </div>
             `;
-        };
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-        window.toggleStockSort = (col) => {
+        function toggleStockSort(col) {
             if (stockSortCol === col) stockSortAsc = !stockSortAsc;
             else { stockSortCol = col; stockSortAsc = true; }
-            window.render();
-        };
+            renderApp();
+        }
 
-        window.updateStockFilter = () => {
+        function updateStockFilter() {
             stockFilterSupplier = document.getElementById('filter-stock-supplier').value;
-            window.render();
-        };
+            renderApp();
+        }
 
-        window.showItemDocumentsModal = (itemId) => {
+        function showItemDocumentsModal(itemId) {
             const item = state.items.find(i => i.id === itemId);
             if (!item) return;
 
             const itemMovements = state.movements.filter(m => m.itemId === itemId && m.type === 'IN');
             const uniqueBolle = Array.from(new Set(itemMovements.map(m => state.bolle.find(b => b.movementsIds.includes(m.id))).filter(Boolean)));
 
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Carichi: ${item.name}</h3>
@@ -933,7 +973,7 @@
                         <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
                             ${uniqueBolle.length === 0 ? '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400 italic">Nessun documento di carico trovato.</td></tr>' : uniqueBolle.slice().reverse().map(bolla => {
                                 const supplier = state.suppliers.find(s => s.id === bolla.supplierId);
-                                const typeName = window.getDocTypeName(bolla.docTypeId);
+                                const typeName = getDocTypeName(bolla.docTypeId);
                                 const bollaItemMovements = bolla.movementsIds.map(mid => state.movements.find(m => m.id === mid)).filter(m => m && m.itemId === itemId);
                                 const qtyInBolla = bollaItemMovements.reduce((acc, m) => acc + m.quantity, 0);
                                 
@@ -954,11 +994,11 @@
                 </div>
                 <div class="flex justify-end"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600">Chiudi</button></div>
             `);
-        };
+        }
 
-        window.renderDocuments = function(container) {
+        function renderDocuments(container) {
             const filteredBolle = state.bolle.filter(bolla => {
-                const typeName = window.getDocTypeName(bolla.docTypeId);
+                const typeName = getDocTypeName(bolla.docTypeId);
                 const docFullName = `${typeName} ${bolla.docRef}`.toLowerCase();
                 const matchSearch = docFilterSearch === '' || docFullName.includes(docFilterSearch);
                 const matchDate = docFilterDate === '' || bolla.date.toLowerCase().includes(docFilterDate);
@@ -1009,7 +1049,7 @@
                                     const val = bolla.movementsIds.reduce((acc, mid) => {
                                         const mv = state.movements.find(m => m.id === mid); return acc + (mv ? mv.quantity * mv.price : 0);
                                     }, 0);
-                                    const typeName = window.getDocTypeName(bolla.docTypeId);
+                                    const typeName = getDocTypeName(bolla.docTypeId);
                                     const isExpanded = expandedDocumentId === bolla.id;
                                     let html = `
                                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all cursor-pointer group" onclick="toggleDocumentDetails('${bolla.id}')">
@@ -1042,9 +1082,14 @@
                         </table>
                     </div>
                 </div>`;
-        };
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-        window.renderMovements = function(container) {
+        function toggleDocumentDetails(id) { expandedDocumentId = expandedDocumentId === id ? null : id; renderApp(); }
+        function updateDocFilters() { docFilterSearch = document.getElementById('filter-doc-search').value.toLowerCase(); docFilterDate = document.getElementById('filter-doc-date').value.toLowerCase(); docFilterSupplier = document.getElementById('filter-doc-supplier').value; renderApp(); }
+        function clearDocFilters() { docFilterSearch = ''; docFilterDate = ''; docFilterSupplier = ''; renderApp(); }
+
+        function renderMovements(container) {
             container.innerHTML = `
                 <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                     <h2 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Movimentazioni</h2>
@@ -1075,9 +1120,10 @@
                     </div>
                 </div>
             `;
-        };
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-        window.renderRegistry = function(container) {
+        function renderRegistry(container) {
             let targetSeasonId = state.registrySeasonFilter === 'current' ? state.currentSeasonId : state.registrySeasonFilter;
             const filteredItems = targetSeasonId === 'all' ? state.items : state.items.filter(i => i.seasonId === targetSeasonId);
 
@@ -1094,7 +1140,7 @@
                          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden h-fit text-sm">
                             <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/20 dark:bg-slate-800/50 flex justify-between items-center">
                                 <h3 class="font-bold text-slate-700 dark:text-slate-300 uppercase text-xs tracking-widest">Master Articoli</h3>
-                                <select onchange="state.registrySeasonFilter=this.value; render()" class="text-xs font-semibold border border-slate-200 dark:border-slate-600 rounded-lg p-1 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">
+                                <select onchange="state.registrySeasonFilter=this.value; renderApp()" class="text-xs font-semibold border border-slate-200 dark:border-slate-600 rounded-lg p-1 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">
                                     <option value="current" ${state.registrySeasonFilter === 'current' ? 'selected' : ''}>Stagione Attiva</option>
                                     <option value="all" ${state.registrySeasonFilter === 'all' ? 'selected' : ''}>Tutte</option>
                                     ${state.seasons.map(s => `<option value="${s.id}" ${state.registrySeasonFilter === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
@@ -1103,12 +1149,12 @@
                             <div class="overflow-x-auto text-xs"><table class="w-full text-left"><thead class="bg-slate-50 dark:bg-slate-900/50 text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider border-b border-slate-100 dark:border-slate-700"><tr><th class="px-6 py-3">Prodotto</th><th class="px-6 py-3 text-right">Prezzi</th><th class="px-6 py-3 text-center">Giacenza</th><th class="px-6 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
                                     ${filteredItems.length === 0 ? `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 dark:text-slate-500">Nessun articolo trovato.</td></tr>` : filteredItems.map(item => `
                                         <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200"><div class="text-left font-bold">${item.name}</div><div class="flex gap-1.5 mt-1"><span class="text-[8px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full uppercase font-bold border border-blue-100 dark:border-blue-800">${window.getCategoryName(item.categoryId)}</span></div></td>
+                                            <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200"><div class="text-left font-bold">${item.name}</div><div class="flex gap-1.5 mt-1"><span class="text-[8px] px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full uppercase font-bold border border-blue-100 dark:border-blue-800">${getCategoryName(item.categoryId)}</span></div></td>
                                             <td class="px-6 py-4 text-right text-xs"><div class="text-slate-400 dark:text-slate-500 font-medium tracking-tight text-right">Acq: € ${item.lastPrice.toFixed(2)}</div><div class="text-blue-600 dark:text-blue-400 font-bold tracking-tight text-right">Ven: € ${(item.sellingPrice || 0).toFixed(2)}</div></td>
                                             <td class="px-6 py-4 text-center"><div class="inline-block px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-600 rounded-lg font-extrabold ${item.currentStock <= item.reorderLevel ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'text-slate-900 dark:text-slate-200'}">${item.currentStock}</div></td>
                                             <td class="px-6 py-4 text-right flex justify-end gap-1">
                                                 <button onclick="openEditItemModal('${item.id}')" class="text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 p-1.5 transition-all"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-                                                <button onclick="requestDeleteItem('${item.id}', '${item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-1.5 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                <button onclick="requestDeleteItem('${item.id}')" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 p-1.5 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                             </td>
                                         </tr>`).join('')}
                             </tbody></table></div>
@@ -1127,7 +1173,7 @@
                                             <span class="truncate mr-1">${s.name}</span>
                                             <div class="flex gap-1 opacity-0 group-hover:opacity-100">
                                                 <button onclick="openEditMasterModal('suppliers', '${s.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
-                                                <button onclick="requestDeleteMaster('suppliers', '${s.id}', '${s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                                <button onclick="requestDeleteMaster('suppliers', '${s.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
                                             </div>
                                         </div>
                                         <div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex flex-col gap-0.5">
@@ -1144,7 +1190,7 @@
                                 <button onclick="openMasterModal('categories')" class="text-blue-600 dark:text-blue-400 hover:scale-110 transition-transform"><i data-lucide="plus-circle" class="w-5 h-5"></i></button>
                             </div>
                             <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar text-xs text-left">
-                                ${state.categories.map(c => `<div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all"><span class="text-slate-700 dark:text-slate-200 font-bold">${c.name}</span><button onclick="requestDeleteMaster('categories', '${c.id}', '${c.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="opacity-0 group-hover:opacity-100 text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}
+                                ${state.categories.map(c => `<div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl group hover:bg-white dark:hover:bg-slate-800 transition-all"><span class="text-slate-700 dark:text-slate-200 font-bold">${c.name}</span><button onclick="requestDeleteMaster('categories', '${c.id}')" class="opacity-0 group-hover:opacity-100 text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}
                             </div>
                         </div>
                         <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm text-left">
@@ -1174,7 +1220,7 @@
                                             <span class="text-slate-700 dark:text-slate-200 font-bold">${o.name}</span>
                                             <div class="flex gap-1 opacity-0 group-hover:opacity-100">
                                                 <button onclick="openEditMasterModal('outlets', '${o.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
-                                                <button onclick="requestDeleteMaster('outlets', '${o.id}', '${o.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                                <button onclick="requestDeleteMaster('outlets', '${o.id}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
                                             </div>
                                         </div>
                                         ${o.budget > 0 ? `<div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1 font-medium"><i data-lucide="target" class="w-2.5 h-2.5 opacity-50"></i> Budget: € ${o.budget.toFixed(2)}/mese</div>` : `<div class="text-[9px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1 italic opacity-50"><i data-lucide="info" class="w-2.5 h-2.5"></i> Nessun budget</div>`}
@@ -1192,7 +1238,7 @@
                                         <span class="text-slate-700 dark:text-slate-200">${dt.name}</span>
                                         <div class="flex gap-1 opacity-0 group-hover:opacity-100">
                                             <button onclick="openEditMasterModal('documentTypes', '${dt.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
-                                            <button onclick="requestDeleteMaster('documentTypes', '${dt.id}', '${dt.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                            <button onclick="requestDeleteMaster('documentTypes', '${dt.id}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
                                         </div>
                                     </div>`).join('')}
                             </div>
@@ -1213,25 +1259,81 @@
                                         </div>
                                         <div class="flex gap-1 opacity-0 group-hover:opacity-100">
                                             <button onclick="openUserModal('${u.id}')" class="text-blue-400 hover:text-blue-600"><i data-lucide="pencil" class="w-3 h-3"></i></button>
-                                            <button onclick="requestDeleteUser('${u.id}', '${u.username.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
+                                            <button onclick="requestDeleteUser('${u.id}')" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button>
                                         </div>
                                     </div>`).join('')}
                             </div>
                         </div>
                     </div>
                 </div>`;
-        };
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
-        window.toggleDocumentDetails = (id) => { expandedDocumentId = expandedDocumentId === id ? null : id; window.render(); };
-        window.updateDocFilters = () => { docFilterSearch = document.getElementById('filter-doc-search').value.toLowerCase(); docFilterDate = document.getElementById('filter-doc-date').value.toLowerCase(); docFilterSupplier = document.getElementById('filter-doc-supplier').value; window.render(); };
-        window.clearDocFilters = () => { docFilterSearch = ''; docFilterDate = ''; docFilterSupplier = ''; window.render(); };
+        // --- 5. MODALS E AZIONI MISTE ---
+        function viewBollaDetail(id) {
+            const b = state.bolle.find(x => x.id === id); if (!b) return;
+            const detailMovements = state.movements.filter(m => b.movementsIds.includes(m.id));
+            const supplier = state.suppliers.find(s => s.id === b.supplierId);
+            openModal(`
+                <div class="flex justify-between items-center mb-6 text-left font-bold"><div><h3 class="text-xl font-bold text-slate-800 dark:text-white">Dettaglio Documento</h3><p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">${getDocTypeName(b.docTypeId)} ${b.docRef}</p></div><button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button></div>
+                <div class="bg-blue-50/50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900 mb-6 text-xs flex justify-between font-bold"><div><span class="text-slate-500 dark:text-slate-400 font-bold uppercase text-[9px]">Fornitore:</span><br><span class="font-bold text-blue-800 dark:text-blue-400 uppercase font-bold">${supplier ? supplier.name : 'N.D.'}</span></div><div class="text-right font-bold"><span class="text-slate-500 dark:text-slate-400 font-bold uppercase text-[9px] font-bold">Data:</span><br><span class="font-bold text-blue-800 dark:text-blue-400 uppercase font-bold">${b.date}</span></div></div>
+                <div class="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner font-bold"><table class="w-full text-xs text-left font-bold"><thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 dark:text-slate-500 font-bold uppercase"><tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Prezzo</th><th class="px-4 py-2 text-right">Totale</th></tr></thead><tbody class="divide-y divide-slate-50 dark:divide-slate-800 font-bold">
+                    ${detailMovements.map(m => { const item = state.items.find(i => i.id === m.itemId); return `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50"><td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-300 text-xs font-bold">${item ? item.name : 'ELIMINATO'}</td><td class="px-4 py-2 text-center dark:text-slate-200 font-bold font-bold">${m.quantity}</td><td class="px-4 py-2 text-right dark:text-slate-300 font-bold">€ ${parseFloat(m.price).toFixed(2)}</td><td class="px-4 py-2 text-right font-bold text-blue-600 dark:text-blue-400 font-bold">€ ${(m.quantity * m.price).toFixed(2)}</td></tr>`; }).join('')}
+                </tbody></table></div>
+                <div class="flex justify-end font-bold"><button onclick="closeModal()" class="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 dark:hover:bg-slate-600 font-bold">Chiudi</button></div>
+            `);
+        }
 
-        window.openMultiLoadModal = function() {
+        function editBollaFull(id) {
+            const bolla = state.bolle.find(x => x.id === id);
+            if (!bolla) return;
+            editingBollaId = id;
+            currentBollaSupplierId = bolla.supplierId;
+            currentBollaDocTypeId = bolla.docTypeId;
+            currentBollaDocRef = bolla.docRef;
+            pendingBollaItems = bolla.movementsIds.map(mid => {
+                const mv = state.movements.find(m => m.id === mid);
+                return mv ? { itemId: mv.itemId, quantity: mv.quantity, price: mv.price } : null;
+            }).filter(Boolean); 
+            openMultiLoadModal();
+        }
+
+        function requestDeleteBolla(id) {
+            openModal(`
+                <div class="text-center p-4">
+                    <h3 class="text-xl font-bold mb-4 text-slate-800 dark:text-white">Eliminare questo documento di carico?</h3>
+                    <div class="flex gap-3">
+                        <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">No</button>
+                        <button onclick="deleteBolla('${id}')" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
+                    </div>
+                </div>`); 
+        }
+
+        function deleteBolla(id) {
+            const b = state.bolle.find(x => x.id === id);
+            if(b) {
+                b.movementsIds.forEach(mid => { 
+                    const mv = state.movements.find(m => m.id === mid); 
+                    if (mv) { 
+                        const item = state.items.find(i => i.id === mv.itemId); 
+                        if (item) item.currentStock -= mv.quantity; 
+                    } 
+                });
+                state.movements = state.movements.filter(m => !b.movementsIds.includes(m.id)); 
+                state.bolle = state.bolle.filter(x => x.id !== id);
+                saveData(true, 'Elimina Documento Carico');
+            }
+            closeModal();
+            renderApp();
+        }
+
+        function openMultiLoadModal() {
             if (state.items.length === 0 || state.suppliers.length === 0) { showNotification("Crea Articoli e Fornitori!"); return; }
             if (editingBollaId === null && pendingBollaItems.length === 0) {
                 currentBollaSupplierId = state.suppliers[0].id; currentBollaDocRef = ""; currentBollaDocTypeId = state.documentTypes.length > 0 ? state.documentTypes[0].id : "";
             }
-            const refreshBollaModal = () => {
+            
+            refreshBollaModal = () => {
                 document.getElementById('modal-content').innerHTML = `
                     <div class="flex justify-between items-center mb-6 text-left">
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="truck" class="text-green-600"></i> ${editingBollaId ? 'Modifica Documento di Carico' : 'Registra documento di carico'}</h3>
@@ -1261,7 +1363,7 @@
                             <div><label class="text-[9px] font-bold text-slate-400 uppercase">Quantità</label><input type="number" id="entry-qty" value="1" min="1" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"></div>
                             <div><label class="text-[9px] font-bold text-slate-400 uppercase text-blue-600 dark:text-blue-400">Costo (€)</label><input type="number" id="entry-price" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold"></div>
                         </div>
-                        <button onclick="addPendingItemToBolla(); refreshBollaModal()" class="w-full mt-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-blue-700">Aggiungi riga</button>
+                        <button onclick="addPendingItemToBolla();" class="w-full mt-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm uppercase tracking-tighter border border-transparent dark:border-blue-700">Aggiungi riga</button>
                     </div>
                     <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
                         <table class="w-full text-left">
@@ -1283,20 +1385,20 @@
                         <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
                         <button onclick="finalizeBolla()" class="flex-1 bg-green-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-green-100 dark:shadow-none hover:bg-green-700 ${pendingBollaItems.length===0?'opacity-50 pointer-events-none':''}">Conferma e Salva</button>
                     </div>`;
-                if (typeof lucide !== 'undefined') lucide.createIcons(); window.autoFillPrice();
+                if (typeof lucide !== 'undefined') lucide.createIcons(); autoFillPrice();
             };
-            window.syncBollaHeader = () => { 
+            syncBollaHeader = () => { 
                 currentBollaSupplierId = document.getElementById('multi-supplier').value; 
                 currentBollaDocRef = document.getElementById('multi-doc-ref').value; 
                 currentBollaDocTypeId = document.getElementById('multi-doc-type').value;
             };
-            window.refreshBollaModal = refreshBollaModal; window.openModal(''); refreshBollaModal();
-        };
+            openModal(''); refreshBollaModal();
+        }
 
-        window.openMultiDischargeModal = function() {
+        function openMultiDischargeModal() {
             if (state.items.length === 0 || state.outlets.length === 0) { showNotification("Configura articoli e reparti!"); return; }
             if (pendingDischargeItems.length === 0) { currentDischargeOutletId = state.outlets[0].id; }
-            const refreshDischargeModal = () => {
+            refreshDischargeModal = () => {
                 document.getElementById('modal-content').innerHTML = `
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="log-out" class="text-orange-600"></i> Scarico Reparto Hotel</h3>
@@ -1314,7 +1416,7 @@
                             <div><label class="text-[9px] font-bold text-slate-400 uppercase">Quantità</label><input type="number" id="out-entry-qty" value="1" min="1" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"></div>
                             <div><label class="text-[9px] font-bold text-slate-400 uppercase text-blue-600 dark:text-blue-400">P. Vendita (€)</label><input type="number" id="out-entry-price" step="0.01" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 text-xs font-bold"></div>
                         </div>
-                        <button onclick="addPendingItemToDischarge(); refreshDischargeModal()" class="w-full mt-3 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 py-2.5 rounded-xl text-xs font-bold hover:bg-orange-600 hover:text-white transition-all shadow-sm border border-transparent dark:border-orange-700">Aggiungi allo Scarico</button>
+                        <button onclick="addPendingItemToDischarge();" class="w-full mt-3 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 py-2.5 rounded-xl text-xs font-bold hover:bg-orange-600 hover:text-white transition-all shadow-sm border border-transparent dark:border-orange-700">Aggiungi allo Scarico</button>
                     </div>
                     <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
                         <table class="w-full text-left text-xs"><thead class="bg-slate-50 dark:bg-slate-800/50 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-[9px] font-bold text-slate-400 uppercase"><tr><th class="px-4 py-2">Prodotto</th><th class="px-4 py-2 text-center">Q.tà</th><th class="px-4 py-2 text-right">Valore</th><th class="px-4 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1331,16 +1433,16 @@
                         <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
                         <button onclick="finalizeMultiDischarge()" class="flex-1 bg-orange-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-orange-100 dark:shadow-none hover:bg-orange-700 ${pendingDischargeItems.length===0?'opacity-50 pointer-events-none':''}">Conferma Scarico</button>
                     </div>`;
-                if (typeof lucide !== 'undefined') lucide.createIcons(); window.autoFillOutPrice();
+                if (typeof lucide !== 'undefined') lucide.createIcons(); autoFillOutPrice();
             };
-            window.syncDischargeHeader = () => { currentDischargeOutletId = document.getElementById('multi-outlet').value; };
-            window.refreshDischargeModal = refreshDischargeModal; window.openModal(''); refreshDischargeModal();
-        };
+            syncDischargeHeader = () => { currentDischargeOutletId = document.getElementById('multi-outlet').value; };
+            openModal(''); refreshDischargeModal();
+        }
 
-        window.openInventoryModal = () => {
+        function openInventoryModal() {
             if (state.items.length === 0) { showNotification("Nessun articolo configurato!"); return; }
             
-            const refreshInventoryModal = () => {
+            refreshInventoryModal = () => {
                 document.getElementById('modal-content').innerHTML = `
                     <div class="flex justify-between items-center mb-6">
                         <div>
@@ -1366,7 +1468,7 @@
                                 <input type="number" id="inv-actual-qty" min="0" class="w-full px-3 py-2.5 rounded-lg border border-purple-300 dark:border-purple-600 text-xs font-bold text-purple-700 dark:text-purple-300 focus:ring-2 focus:ring-purple-500 outline-none text-center bg-white dark:bg-slate-800 shadow-inner">
                             </div>
                         </div>
-                        <button onclick="addPendingItemToInventory(); refreshInventoryModal()" class="w-full mt-4 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 py-2.5 rounded-xl text-xs font-extrabold hover:bg-purple-600 hover:text-white transition-all shadow-sm border border-purple-200 dark:border-purple-700 uppercase tracking-widest">Aggiungi alla Rettifica</button>
+                        <button onclick="addPendingItemToInventory();" class="w-full mt-4 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 py-2.5 rounded-xl text-xs font-extrabold hover:bg-purple-600 hover:text-white transition-all shadow-sm border border-purple-200 dark:border-purple-700 uppercase tracking-widest">Aggiungi alla Rettifica</button>
                     </div>
                     
                     <div class="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-6 bg-white dark:bg-slate-900 shadow-inner text-xs">
@@ -1395,21 +1497,21 @@
                         <button onclick="closeModal()" class="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
                         <button onclick="finalizeInventory()" class="flex-1 bg-purple-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-purple-200 dark:shadow-none hover:bg-purple-700 ${pendingInventoryItems.length===0?'opacity-50 pointer-events-none':''}">Salva Rettifiche</button>
                     </div>`;
-                if (typeof lucide !== 'undefined') lucide.createIcons(); window.autoFillSystemStock();
+                if (typeof lucide !== 'undefined') lucide.createIcons(); autoFillSystemStock();
             };
-            window.refreshInventoryModal = refreshInventoryModal; window.openModal(''); refreshInventoryModal();
-        };
+            openModal(''); refreshInventoryModal();
+        }
 
-        window.autoFillSystemStock = () => { 
+        function autoFillSystemStock() { 
             const id = document.getElementById('inv-entry-item')?.value; 
             const item = state.items.find(i=>i.id===id); 
             if(item && document.getElementById('inv-system-qty')) {
                 document.getElementById('inv-system-qty').value = item.currentStock; 
                 document.getElementById('inv-actual-qty').value = item.currentStock; 
             }
-        };
+        }
 
-        window.addPendingItemToInventory = () => { 
+        function addPendingItemToInventory() { 
             const itemId = document.getElementById('inv-entry-item').value; 
             const systemQty = parseInt(document.getElementById('inv-system-qty').value); 
             const actualQty = parseInt(document.getElementById('inv-actual-qty').value); 
@@ -1417,9 +1519,10 @@
             if(isNaN(actualQty) || actualQty < 0) { showNotification("Quantità non valida"); return; }
             if(systemQty === actualQty) { showNotification("Nessuno scostamento: giacenza già corretta"); return; }
             pendingInventoryItems.push({ itemId, systemQty, actualQty }); 
-        };
+            refreshInventoryModal();
+        }
 
-        window.finalizeInventory = () => {
+        function finalizeInventory() {
             const dateStr = new Date().toLocaleDateString('it-IT'); let successCount = 0;
             pendingInventoryItems.forEach(p => { 
                 const item = state.items.find(i => i.id === p.itemId); 
@@ -1431,18 +1534,18 @@
                     successCount++; 
                 } 
             });
-            if(successCount > 0) { window.saveData(true, `Inventario Fisico (${successCount} art.)`); window.closeModal(); window.render(); showNotification(`Rettifica applicata con successo`); } 
+            if(successCount > 0) { saveData(true, `Inventario Fisico (${successCount} art.)`); closeModal(); renderApp(); showNotification(`Rettifica applicata con successo`); } 
             pendingInventoryItems = [];
-        };
+        }
 
-        // --- COMMON UTILS ---
-        window.autoFillPrice = () => { const id = document.getElementById('entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('entry-price')) document.getElementById('entry-price').value = item.lastPrice; };
-        window.autoFillOutPrice = () => { const id = document.getElementById('out-entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('out-entry-price')) document.getElementById('out-entry-price').value = item.sellingPrice; };
-        window.addPendingItemToBolla = () => { window.syncBollaHeader(); const itemId = document.getElementById('entry-item').value; const quantity = parseInt(document.getElementById('entry-qty').value); const price = parseFloat(document.getElementById('entry-price').value); if(!quantity || quantity <= 0) return; pendingBollaItems.push({ itemId, quantity, price }); };
-        window.addPendingItemToDischarge = () => { window.syncDischargeHeader(); const itemId = document.getElementById('out-entry-item').value; const quantity = parseInt(document.getElementById('out-entry-qty').value); const price = parseFloat(document.getElementById('out-entry-price').value); if(!quantity || quantity <= 0) return; const item = state.items.find(i => i.id === itemId); if(item.currentStock < quantity) { showNotification(`Stock insufficiente per ${item.name}!`); return; } pendingDischargeItems.push({ itemId, quantity, price }); };
+        // --- COMMON UTILS PER OPERAZIONI ---
+        function autoFillPrice() { const id = document.getElementById('entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('entry-price')) document.getElementById('entry-price').value = item.lastPrice; }
+        function autoFillOutPrice() { const id = document.getElementById('out-entry-item')?.value; const item = state.items.find(i=>i.id===id); if(item && document.getElementById('out-entry-price')) document.getElementById('out-entry-price').value = item.sellingPrice; }
+        function addPendingItemToBolla() { syncBollaHeader(); const itemId = document.getElementById('entry-item').value; const quantity = parseInt(document.getElementById('entry-qty').value); const price = parseFloat(document.getElementById('entry-price').value); if(!quantity || quantity <= 0) return; pendingBollaItems.push({ itemId, quantity, price }); refreshBollaModal(); }
+        function addPendingItemToDischarge() { syncDischargeHeader(); const itemId = document.getElementById('out-entry-item').value; const quantity = parseInt(document.getElementById('out-entry-qty').value); const price = parseFloat(document.getElementById('out-entry-price').value); if(!quantity || quantity <= 0) return; const item = state.items.find(i => i.id === itemId); if(item.currentStock < quantity) { showNotification(`Stock insufficiente per ${item.name}!`); return; } pendingDischargeItems.push({ itemId, quantity, price }); refreshDischargeModal(); }
         
-        window.finalizeBolla = () => {
-            window.syncBollaHeader(); const dateStr = new Date().toLocaleDateString('it-IT');
+        function finalizeBolla() {
+            syncBollaHeader(); const dateStr = new Date().toLocaleDateString('it-IT');
             if (editingBollaId) {
                 const b = state.bolle.find(x => x.id === editingBollaId);
                 b.movementsIds.forEach(mid => { const mv = state.movements.find(m => m.id === mid); if (mv) { const item = state.items.find(i => i.id === mv.itemId); if (item) item.currentStock -= mv.quantity; } });
@@ -1451,19 +1554,19 @@
             const bollaId = editingBollaId || 'bolla-' + Date.now(); const mIds = [];
             pendingBollaItems.forEach(p => { const item = state.items.find(i => i.id === p.itemId); if (item) { item.currentStock += p.quantity; item.lastPrice = p.price; const mId = 'mv-' + Date.now() + Math.random(); mIds.push(mId); state.movements.push({ id: mId, itemId: p.itemId, type: 'IN', quantity: p.quantity, price: p.price, supplierId: currentBollaSupplierId, documentRef: currentBollaDocRef || 'Doc s/n', date: dateStr, bollaId: bollaId }); } });
             state.bolle.push({ id: bollaId, docRef: currentBollaDocRef || 'Doc s/n', supplierId: currentBollaSupplierId, docTypeId: currentBollaDocTypeId, date: dateStr, movementsIds: mIds });
-            window.saveData(true, editingBollaId ? "Modifica Documento" : "Nuovo Documento"); window.closeModal(); window.render(); showNotification("Operazione completata"); editingBollaId = null; pendingBollaItems = [];
-        };
+            saveData(true, editingBollaId ? "Modifica Documento" : "Nuovo Documento"); closeModal(); renderApp(); showNotification("Operazione completata"); editingBollaId = null; pendingBollaItems = [];
+        }
 
-        window.finalizeMultiDischarge = () => {
-            window.syncDischargeHeader(); const dateStr = new Date().toLocaleDateString('it-IT'); let successCount = 0;
+        function finalizeMultiDischarge() {
+            syncDischargeHeader(); const dateStr = new Date().toLocaleDateString('it-IT'); let successCount = 0;
             pendingDischargeItems.forEach(p => { const item = state.items.find(i => i.id === p.itemId); if (item && item.currentStock >= p.quantity) { item.currentStock -= p.quantity; state.movements.push({ id: 'mv-' + Date.now() + Math.random(), itemId: p.itemId, type: 'OUT', quantity: p.quantity, price: p.price, outletId: currentDischargeOutletId, date: dateStr }); successCount++; } });
-            if(successCount > 0) { window.saveData(true, `Scarico Reparto (${successCount} art.)`); window.closeModal(); window.render(); showNotification(`Completato`); } pendingDischargeItems = [];
-        };
+            if(successCount > 0) { saveData(true, `Scarico Reparto (${successCount} art.)`); closeModal(); renderApp(); showNotification(`Completato`); } pendingDischargeItems = [];
+        }
 
-        // --- GESTIONE ANAGRAFICHE MASTER ---
-        window.openMasterModal = function(type) {
+        // --- GESTIONE ANAGRAFICHE MASTER E SINGOLI ARTICOLI ---
+        function openMasterModal(type) {
             const labels = { suppliers: 'Fornitore', outlets: 'Destinazione', categories: 'Categoria', seasons: 'Stagione', documentTypes: 'Tipo Documento' };
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white">Nuova ${labels[type]}</h3>
                     <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
@@ -1496,13 +1599,13 @@
                 const entry = { id: 'm'+Date.now(), name: d.get('name') }; 
                 if(type==='suppliers'){ entry.contactPerson = d.get('contactPerson'); entry.phone=d.get('phone'); entry.email=d.get('email'); } 
                 else if (type==='outlets') { entry.budget = parseFloat(d.get('budget')) || 0; }
-                state[type].push(entry); window.saveData(true, "Aggiunta voce"); window.closeModal(); window.render(); 
+                state[type].push(entry); saveData(true, "Aggiunta voce"); closeModal(); renderApp(); 
             };
-        };
+        }
         
-        window.openEditMasterModal = function(type, id) {
+        function openEditMasterModal(type, id) {
             const item = state[type].find(x => x.id === id);
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Modifica</h3>
                     <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
@@ -1535,13 +1638,13 @@
                 item.name = d.get('name'); 
                 if(type==='suppliers'){ item.contactPerson = d.get('contactPerson'); item.phone=d.get('phone'); item.email=d.get('email'); } 
                 else if (type==='outlets') { item.budget = parseFloat(d.get('budget')) || 0; }
-                window.saveData(true, "Modifica voce"); window.closeModal(); window.render(); 
+                saveData(true, "Modifica voce"); closeModal(); renderApp(); 
             };
-        };
+        }
 
-        window.openItemModal = function() {
+        function openItemModal() {
             if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Nuovo Articolo</h3>
                     <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
@@ -1573,15 +1676,15 @@
                 e.preventDefault(); const d = new FormData(e.target); const initQty = parseInt(d.get('initialStock')) || 0;
                 const newItem = { id: 'i'+Date.now(), name: d.get('name'), seasonId: d.get('seasonId'), categoryId: d.get('categoryId'), uomId: d.get('uomId'), lastPrice: parseFloat(d.get('price')), sellingPrice: parseFloat(d.get('sellingPrice')), reorderLevel: parseInt(d.get('reorderLevel')), currentStock: initQty };
                 if (initQty > 0) state.movements.push({ id: 'mv-init-'+Date.now(), itemId: newItem.id, type: 'IN', quantity: initQty, price: newItem.lastPrice, date: new Date().toLocaleDateString('it-IT'), documentRef: 'Giacenza Iniziale' });
-                state.items.push(newItem); window.saveData(true, "Nuovo Articolo"); window.closeModal(); window.render();
+                state.items.push(newItem); saveData(true, "Nuovo Articolo"); closeModal(); renderApp();
             };
-        };
+        }
 
-        window.openMultiItemModal = function() {
+        function openMultiItemModal() {
             if (state.seasons.length === 0 || state.categories.length === 0) { showNotification("Configura Stagioni e Categorie!"); return; }
             if (pendingNewItems.length === 0) { setTimeout(() => document.getElementById('mi-name')?.focus(), 50); }
             
-            const refreshMultiItemModal = () => {
+            refreshMultiItemModal = () => {
                 document.getElementById('modal-content').innerHTML = `
                     <div class="flex justify-between items-center mb-6 text-left">
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2"><i data-lucide="list-plus" class="text-indigo-600"></i> Inserimento Multiplo Articoli</h3>
@@ -1648,7 +1751,7 @@
                                 ${pendingNewItems.length === 0 ? `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">Nessun articolo pronto per l'inserimento</td></tr>` : pendingNewItems.map((p, idx) => `
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                     <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-300 text-xs">${p.name}</td>
-                                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">${window.getCategoryName(p.categoryId)} / ${window.getUomName(p.uomId)}</td>
+                                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">${getCategoryName(p.categoryId)} / ${getUomName(p.uomId)}</td>
                                     <td class="px-4 py-2 text-right font-medium dark:text-slate-300">€${p.price.toFixed(2)} / €${p.sellingPrice.toFixed(2)}</td>
                                     <td class="px-4 py-2 text-center dark:text-slate-200">${p.initialStock}</td>
                                     <td class="px-4 py-2 text-right"><button onclick="pendingNewItems.splice(${idx}, 1); refreshMultiItemModal()" class="text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></td>
@@ -1663,13 +1766,11 @@
                     </div>`;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             };
-            
-            window.refreshMultiItemModal = refreshMultiItemModal; 
-            window.openModal(''); 
+            openModal(''); 
             refreshMultiItemModal();
-        };
+        }
 
-        window.addPendingNewItem = function() {
+        function addPendingNewItem() {
             const nameInput = document.getElementById('mi-name');
             const name = nameInput.value.trim();
             if(!name) { showNotification("Inserisci la descrizione dell'articolo"); return; }
@@ -1684,7 +1785,7 @@
 
             pendingNewItems.push({ name, seasonId, categoryId, uomId, price, sellingPrice, reorderLevel, initialStock });
             
-            window.refreshMultiItemModal();
+            refreshMultiItemModal();
 
             setTimeout(() => {
                 const newNameInput = document.getElementById('mi-name');
@@ -1696,9 +1797,9 @@
                 document.getElementById('mi-sell').value = '0';
                 document.getElementById('mi-stock').value = '0';
             }, 10);
-        };
+        }
 
-        window.finalizeMultiItems = function() {
+        function finalizeMultiItems() {
             if(pendingNewItems.length === 0) return;
             const dateStr = new Date().toLocaleDateString('it-IT');
             let addedCount = 0;
@@ -1730,18 +1831,18 @@
                 addedCount++;
             });
             
-            window.saveData(true, `Inserimento Multiplo (${addedCount} art.)`); 
-            window.closeModal(); 
-            window.render(); 
-            window.showNotification(`${addedCount} articoli inseriti con successo`);
+            saveData(true, `Inserimento Multiplo (${addedCount} art.)`); 
+            closeModal(); 
+            renderApp(); 
+            showNotification(`${addedCount} articoli inseriti con successo`);
             pendingNewItems = [];
-        };
+        }
         
-        window.openEditItemModal = function(id) {
+        function openEditItemModal(id) {
             const item = state.items.find(i => i.id === id);
             if (!item) return;
             
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Modifica Articolo</h3>
                     <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
@@ -1780,44 +1881,49 @@
                 item.sellingPrice = parseFloat(d.get('sellingPrice'));
                 item.reorderLevel = parseInt(d.get('reorderLevel'));
                 
-                window.saveData(true, "Modifica Articolo"); 
-                window.closeModal(); 
-                window.render();
+                saveData(true, "Modifica Articolo"); 
+                closeModal(); 
+                renderApp();
             };
-        };
+        }
 
-        window.requestDeleteItem = function(id, name) { 
-            window.openModal(`
+        function requestDeleteItem(id) { 
+            openModal(`
                 <div class="text-center p-4">
                     <h3 class="font-bold mb-4 italic text-slate-800 dark:text-white">Eliminare definitivamente l'articolo selezionato?</h3>
                     <div class="flex gap-3">
                         <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">No</button>
-                        <button onclick="state.items=state.items.filter(i=>i.id!=='${id}');saveData(true,'Elimina item');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
+                        <button onclick="state.items=state.items.filter(i=>i.id!=='${id}');saveData(true,'Elimina item');closeModal();renderApp()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
                     </div>
                 </div>`); 
-        };
+        }
 
-        window.requestDeleteMaster = function(type, id, name) {
+        function requestDeleteMaster(type, id) {
+            const item = state[type].find(x => x.id === id);
+            if(!item) return;
+
             const isUsed = (type==='categories' && state.items.some(i=>i.categoryId===id)) || 
                            (type==='outlets' && state.movements.some(m=>m.outletId===id)) || 
                            (type==='seasons' && state.items.some(i=>i.seasonId===id)) || 
                            (type==='suppliers' && state.bolle.some(b=>b.supplierId===id)) || 
                            (type==='documentTypes' && state.bolle.some(b=>b.docTypeId===id));
-            if(isUsed) { window.showNotification("Impossibile eliminare: anagrafica in uso!"); return; }
-            window.openModal(`
+            
+            if(isUsed) { showNotification("Impossibile eliminare: anagrafica in uso!"); return; }
+            
+            openModal(`
                 <div class="text-center p-4">
-                    <h3 class="font-bold mb-4 italic text-slate-800 dark:text-white">Rimuovere ${name}?</h3>
+                    <h3 class="font-bold mb-4 italic text-slate-800 dark:text-white">Rimuovere anagrafica?</h3>
                     <div class="flex gap-3">
                         <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">No</button>
-                        <button onclick="state['${type}']=state['${type}'].filter(x=>x.id!=='${id}');saveData(true,'Elimina master');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-md md:font-extrabold">Sì, elimina</button>
+                        <button onclick="state['${type}']=state['${type}'].filter(x=>x.id!=='${id}');saveData(true,'Elimina master');closeModal();renderApp()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-md md:font-extrabold">Sì, elimina</button>
                     </div>
                 </div>`);
-        };
+        }
 
         // --- GESTIONE UTENTI ---
-        window.openUserModal = function(id = null) {
+        function openUserModal(id = null) {
             const user = id ? state.users.find(u => u.id === id) : null;
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6 text-left">
                     <h3 class="text-xl font-bold text-slate-800 dark:text-white">${id ? 'Modifica Utente' : 'Nuovo Utente'}</h3>
                     <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
@@ -1853,30 +1959,30 @@
                 } else {
                     state.users.push({ id: 'u-'+Date.now(), username: d.get('username'), password: d.get('password'), role: d.get('role') });
                 }
-                window.saveData(true, "Gestione Utenti"); window.closeModal(); window.render();
+                saveData(true, "Gestione Utenti"); closeModal(); renderApp();
             };
-        };
+        }
 
-        window.requestDeleteUser = function(id, name) {
-            if (state.users.length <= 1) { window.showNotification("Impossibile eliminare l'ultimo utente!"); return; }
-            if (currentUser && currentUser.id === id) { window.showNotification("Non puoi eliminare l'utente connesso!"); return; }
-            window.openModal(`
+        function requestDeleteUser(id) {
+            if (state.users.length <= 1) { showNotification("Impossibile eliminare l'ultimo utente!"); return; }
+            if (currentUser && currentUser.id === id) { showNotification("Non puoi eliminare l'utente connesso!"); return; }
+            openModal(`
                 <div class="text-center p-4">
                     <div class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i data-lucide="alert-triangle" class="w-8 h-8"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-2 text-slate-800 dark:text-white">Elimina Utente</h3>
-                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm italic">Rimuovere l'accesso per <b>${name}</b>?</p>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm italic">Rimuovere l'accesso a questo utente?</p>
                     <div class="flex gap-3">
                         <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">Annulla</button>
-                        <button onclick="state.users=state.users.filter(u=>u.id!=='${id}');saveData(true,'Elimina Utente');closeModal();render()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
+                        <button onclick="state.users=state.users.filter(u=>u.id!=='${id}');saveData(true,'Elimina Utente');closeModal();renderApp()" class="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold shadow-lg">Sì, elimina</button>
                     </div>
                 </div>`);
-        };
+        }
 
         // --- EXPORT E ORDINI ---
-        window.exportDataToCSV = () => {
-            if (state.items.length === 0) { window.showNotification("Nessun dato da esportare!"); return; }
+        function exportDataToCSV() {
+            if (state.items.length === 0) { showNotification("Nessun dato da esportare!"); return; }
             
             const headers = ["ID", "Nome Articolo", "Stagione", "Categoria", "U.M.", "Prezzo Acquisto", "Prezzo Vendita", "Giacenza Attuale", "Soglia Riordino", "Ultimo Fornitore"];
             const rows = state.items.map(item => {
@@ -1891,9 +1997,9 @@
                 return [
                     item.id,
                     `"${item.name.replace(/"/g, '""')}"`, 
-                    `"${window.getSeasonName(item.seasonId)}"`,
-                    `"${window.getCategoryName(item.categoryId)}"`,
-                    `"${window.getUomName(item.uomId)}"`,
+                    `"${getSeasonName(item.seasonId)}"`,
+                    `"${getCategoryName(item.categoryId)}"`,
+                    `"${getUomName(item.uomId)}"`,
                     item.lastPrice || 0,
                     item.sellingPrice || 0,
                     item.currentStock || 0,
@@ -1914,15 +2020,15 @@
             link.click();
             document.body.removeChild(link);
             
-            window.showNotification("Esportazione CSV completata");
-        };
+            showNotification("Esportazione CSV completata");
+        }
 
-        window.openOrderGenerationModal = () => {
+        function openOrderGenerationModal() {
             const filteredItems = state.dashboardFilter === 'current' ? state.items.filter(i => i.seasonId === state.currentSeasonId) : state.items;
             const lowStockItems = filteredItems.filter(i => i.currentStock <= i.reorderLevel);
 
             if (lowStockItems.length === 0) {
-                window.showNotification("Nessun articolo sottoscorta.");
+                showNotification("Nessun articolo sottoscorta.");
                 return;
             }
 
@@ -1966,16 +2072,13 @@
             `;
 
             Object.entries(ordersBySupplier).forEach(([supplierId, order]) => {
-                const safeNameForAttr = order.supplierName.replace(/"/g, '&quot;');
-                const safeNameForJS = order.supplierName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                
                 htmlContent += `
                     <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                         <div class="bg-blue-50/50 dark:bg-blue-900/20 px-4 py-3 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
                             <h4 class="font-bold text-blue-800 dark:text-blue-400 text-xs uppercase flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i> ${order.supplierName}</h4>
                             <div class="flex gap-2">
-                                <button onclick="sendOrderEmail('${supplierId}', '${safeNameForJS}')" class="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-bold transition-all flex items-center gap-1 shadow-sm"><i data-lucide="file-text" class="w-3 h-3"></i> Genera Testo</button>
-                                <button onclick="copyOrderToClipboard('${safeNameForJS}')" class="text-[10px] bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-bold transition-all flex items-center gap-1 shadow-sm" title="Copia testo ordine"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                                <button onclick="sendOrderEmail('${supplierId}')" class="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-bold transition-all flex items-center gap-1 shadow-sm"><i data-lucide="file-text" class="w-3 h-3"></i> Genera Testo</button>
+                                <button onclick="copyOrderToClipboard('${supplierId}')" class="text-[10px] bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-bold transition-all flex items-center gap-1 shadow-sm" title="Copia testo ordine"><i data-lucide="copy" class="w-3 h-3"></i></button>
                             </div>
                         </div>
                         <table class="w-full text-left text-xs">
@@ -1988,7 +2091,7 @@
                                         <td class="px-4 py-2 font-bold text-slate-700 dark:text-slate-200">${item.name}</td>
                                         <td class="px-4 py-2 text-center text-red-500 dark:text-red-400 font-bold">${item.currentStock}</td>
                                         <td class="px-4 py-2 text-center">
-                                            <input type="number" value="${item.suggestedQty}" min="1" class="w-16 text-center border border-slate-200 dark:border-slate-600 rounded py-1 text-blue-600 dark:text-blue-400 font-bold focus:ring-2 focus:ring-blue-500 outline-none order-qty-input shadow-inner bg-slate-50 dark:bg-slate-900" data-supplier="${safeNameForAttr}" data-item="${item.name.replace(/"/g, '&quot;')}">
+                                            <input type="number" value="${item.suggestedQty}" min="1" class="w-16 text-center border border-slate-200 dark:border-slate-600 rounded py-1 text-blue-600 dark:text-blue-400 font-bold focus:ring-2 focus:ring-blue-500 outline-none order-qty-input shadow-inner bg-slate-50 dark:bg-slate-900" data-supplierid="${supplierId}" data-itemname="${item.name.replace(/"/g, '&quot;')}">
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -2005,17 +2108,16 @@
                 </div>
             `;
 
-            window.openModal(htmlContent);
-        };
+            openModal(htmlContent);
+        }
 
-        window.copyOrderToClipboard = (supplierName) => {
-            const safeSupplierName = supplierName.replace(/"/g, '\\"');
-            const inputs = document.querySelectorAll(`.order-qty-input[data-supplier="${safeSupplierName}"]`);
-            let text = `ORDINE PER: ${supplierName}\nDATA: ${new Date().toLocaleDateString('it-IT')}\n\n`;
+        function copyOrderToClipboard(supplierId) {
+            const inputs = document.querySelectorAll(`.order-qty-input[data-supplierid="${supplierId}"]`);
+            let text = `ORDINE DI FORNITURA\nDATA: ${new Date().toLocaleDateString('it-IT')}\n\n`;
             
             let hasItems = false;
             inputs.forEach(input => {
-                const itemName = input.getAttribute('data-item');
+                const itemName = input.getAttribute('data-itemname');
                 const qty = input.value;
                 if(parseInt(qty) > 0) {
                     text += `- ${qty}x ${itemName}\n`;
@@ -2024,7 +2126,7 @@
             });
 
             if(!hasItems) {
-                window.showNotification("Nessuna quantità inserita!");
+                showNotification("Nessuna quantità inserita!");
                 return;
             }
 
@@ -2034,25 +2136,24 @@
             textArea.select();
             try {
                 document.execCommand('copy');
-                window.showNotification("Copiato! Pronto per Email/WhatsApp");
+                showNotification("Copiato! Pronto per Email/WhatsApp");
             } catch (err) {
-                window.showNotification("Errore durante la copia.");
+                showNotification("Errore durante la copia.");
             }
             document.body.removeChild(textArea);
-        };
+        }
 
-        window.sendOrderEmail = (supplierId, supplierName) => {
+        function sendOrderEmail(supplierId) {
             const supplier = state.suppliers.find(s => s.id === supplierId);
             const supplierEmail = supplier && supplier.email ? supplier.email : "[Email non specificata]";
             
-            const safeSupplierName = supplierName.replace(/"/g, '\\"');
-            const inputs = document.querySelectorAll(`.order-qty-input[data-supplier="${safeSupplierName}"]`);
+            const inputs = document.querySelectorAll(`.order-qty-input[data-supplierid="${supplierId}"]`);
             
             let hasItems = false;
             let orderItemsText = "";
             
             inputs.forEach(input => {
-                const itemName = input.getAttribute('data-item');
+                const itemName = input.getAttribute('data-itemname');
                 const qty = input.value;
                 if(parseInt(qty) > 0) {
                     orderItemsText += `- ${qty} pz x ${itemName}\n`;
@@ -2061,20 +2162,20 @@
             });
 
             if(!hasItems) {
-                window.showNotification("Nessuna quantità inserita!");
+                showNotification("Nessuna quantità inserita!");
                 return;
             }
 
             const subject = `Ordine Fornitura - ${new Date().toLocaleDateString('it-IT')}`;
             const bodyText = `A: ${supplierEmail}\nOggetto: ${subject}\n\nBuongiorno,\n\nCon la presente vi trasmettiamo il nostro ordine di fornitura:\n\n${orderItemsText}\nRestiamo in attesa di una vostra gentile conferma di ricezione e dei tempi di consegna.\n\nCordiali saluti,\nLa Direzione`;
 
-            window.openModal(`
+            openModal(`
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Anteprima Email</h3>
                         <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Copia e incolla nel tuo client di posta</p>
                     </div>
-                    <button onclick="openOrderGenerationModal()"><i data-lucide="x" class="text-slate-400"></i></button>
+                    <button onclick="closeModal()"><i data-lucide="x" class="text-slate-400"></i></button>
                 </div>
                 <textarea id="generated-email-text" class="w-full h-64 p-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 custom-scrollbar" readonly>${bodyText}</textarea>
                 <div class="flex gap-3">
@@ -2082,62 +2183,22 @@
                     <button onclick="copyGeneratedEmail()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> Copia Tutto</button>
                 </div>
             `);
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        };
+        }
 
-        window.copyGeneratedEmail = () => {
+        function copyGeneratedEmail() {
             const textArea = document.getElementById("generated-email-text");
             textArea.select();
             try {
                 document.execCommand('copy');
-                window.showNotification("Testo copiato negli appunti!");
+                showNotification("Testo copiato negli appunti!");
             } catch (err) {
-                window.showNotification("Errore durante la copia.");
+                showNotification("Errore durante la copia.");
             }
-        };
+        }
 
-        // --- INTEGRAZIONE GOOGLE SHEETS CLOUD ---
-        const GOOGLE_WEB_APP_URL = ""; 
-
+        // INIT
         window.onload = () => {
-            if (GOOGLE_WEB_APP_URL && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                fetch(GOOGLE_WEB_APP_URL)
-                    .then(res => res.json())
-                    .then(result => {
-                        if (result.status === 'success' && result.data) {
-                            window.initCloudData(result.data);
-                        } else {
-                            window.initCloudData(null);
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Errore fetch Google Sheets", err);
-                        window.initCloudData(null); 
-                    });
-            } else {
-                console.warn("Nessun link Google Sheets inserito. Avvio in modalità Offline/Locale.");
-                window.initCloudData(null);
-            }
-        };
-
-        window.onSaveToCloud = async (newState) => {
-            if (GOOGLE_WEB_APP_URL && GOOGLE_WEB_APP_URL.startsWith("http")) {
-                try {
-                    const response = await fetch(GOOGLE_WEB_APP_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ state: newState }),
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                    });
-                    const result = await response.json();
-                    if (result.status !== 'success') {
-                        console.error("Errore dal server Google:", result.message);
-                        if(typeof window.showNotification === 'function') window.showNotification("Errore di scrittura su Foglio Google.");
-                    }
-                } catch (e) {
-                    console.error("Salvataggio su Google Sheets fallito", e);
-                    if(typeof window.showNotification === 'function') window.showNotification("Salvataggio cloud fallito. Controlla la connessione.");
-                }
-            }
+            initData();
         };
 
     </script>
